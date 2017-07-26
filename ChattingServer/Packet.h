@@ -1,4 +1,7 @@
 #pragma once
+#define NICKNAME_MAX_LENGTH 80
+#define NICKNAME_MIN_LENGTH 2
+#define MESSAGE_MAX_LENGTH 256
 
 enum PacketType : unsigned short
 {
@@ -10,32 +13,36 @@ enum PacketType : unsigned short
 	JOIN_ANS
 };
 
-typedef struct PacketHeader
+struct PacketHeader
 {
 	unsigned short size_;
+	PacketType type_;
 };
 
-typedef struct LoginRequestPacket
+struct LoginRequestPacket
 {
-	char user_name_[80];
+	PacketHeader header_;
+	char user_name_[NICKNAME_MAX_LENGTH];
 };
 
 enum LoginAnswer : unsigned short
 {
-	SUCCESS,
 	FAIL_DUPLICATE,
 	FAIL_TOO_SHORT,
 	FAIL_TOO_LONG,
-	FAIL_UNKNOWN
+	FAIL_UNKNOWN,
+	SUCCESS
 };
 
-typedef struct LoginAnswerPacket
+struct LoginAnswerPacket
 {
+	PacketHeader header_;
 	LoginAnswer answer_;
 };
 
-typedef struct ChatSendPacket
+struct ChatSendPacket
 {
+	PacketHeader header_;
 	char message_[256];
 };
 
@@ -46,9 +53,10 @@ enum ChatType : unsigned short
 	WHISPER
 };
 
-typedef struct ChatReceivePacket
+struct ChatReceivePacket
 {
+	PacketHeader header_;
 	ChatType type_;
-	char user_name_[80];
-	char message_[256];
+	char user_name_[NICKNAME_MAX_LENGTH];
+	char message_[MESSAGE_MAX_LENGTH];
 };
