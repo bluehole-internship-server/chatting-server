@@ -1,12 +1,11 @@
 #include "ChatClient.h"
 
-
-
-ChatClient::ChatClient()
+char * ChatClient::GetNickname()
 {
+	return nickname_;
 }
 
-
-ChatClient::~ChatClient()
+void ChatClient::SetNickname(char * nickname)
 {
+	strcpy(nickname_, nickname);
 }

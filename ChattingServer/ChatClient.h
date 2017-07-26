@@ -1,13 +1,13 @@
 #pragma once
 #include <Client.h>
 
-class ChatClient : public core::Client
+class ChatClient
 {
 public:
-	ChatClient();
-	~ChatClient();
-
+	char * GetNickname();
+	void SetNickname(char * nickname);
+	core::Client * client_;
 private:
-	char nickname[80];
+	char nickname_[80];
 };
 
