@@ -94,14 +94,20 @@ int main()
 					// Do Something.
 				} 
 				else {
-					char * recieved_message = new char[send_message_length];
+					ChatReceivePacket * chat_receive_packet = new ChatReceivePacket();
+					chat_receive_packet->header_.type_ = CHAT_RECV;
+					
+					char * recieved_message = chat_receive_packet->message_;
 					memcpy(recieved_message, chat_client->GetNickname(), chat_client_nickname_length);
 					recieved_message[chat_client_nickname_length] = ':';
 					memcpy(recieved_message + chat_client_nickname_length + 1, chat_send_packet->message_, packet_size);
 					recieved_message[send_message_length - 1] = 0;
 					printf("%s\n", recieved_message);
+					
+					chat_receive_packet->type_ = NORMAL;
+					chat_receive_packet->header_.size_ = send_message_length + sizeof(ChatReceivePacket::type_);
 					for (auto client : chat_clients) {
-						client.second->client_->Send(recieved_message, send_message_length);
+						client.second->client_->Send((char *)chat_receive_packet, sizeof(PacketHeader) + send_message_length + sizeof(ChatReceivePacket::type_));
 					}
 				}
 			}

@@ -57,6 +57,5 @@ struct ChatReceivePacket
 {
 	PacketHeader header_;
 	ChatType type_;
-	char user_name_[NICKNAME_MAX_LENGTH];
 	char message_[MESSAGE_MAX_LENGTH];
 };
