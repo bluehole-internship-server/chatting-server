@@ -46,7 +46,7 @@ int main()
 			else {
 				LoginRequestPacket * login_request_packet = (LoginRequestPacket *)buffer;
 				char * requested_name = new char[packet_size + 1];
-				strncpy(requested_name, login_request_packet->user_name_, packet_size);
+				memcpy(requested_name, login_request_packet->user_name_, packet_size);
 				requested_name[packet_size] = 0;
 				auto clients = server.GetAllClient();
 				bool is_duplicated = false;
@@ -75,19 +75,29 @@ int main()
 			reciever->Send((char *)&login_answer_packet, sizeof(login_answer_packet));
 			break;
 		case CHAT_SEND:
-			if (chat_clients.find(reciever) == chat_clients.end()) {
-				break;
+			auto target = chat_clients.find(reciever);
+			if (target == chat_clients.end()) {
+				// Do Something.
 			}
-			auto chat_client = chat_clients.find(reciever)->second;
-			ChatSendPacket * chat_send_packet = (ChatSendPacket *)buffer;
-			char * recieved_message = new char[strlen(chat_client->GetNickname()) + 1 + packet_size + 1];
-			strcpy(recieved_message, chat_client->GetNickname());
-			recieved_message[strlen(chat_client->GetNickname())] = ':';
-			strcpy(recieved_message + strlen(chat_client->GetNickname()) + 1, chat_send_packet->message_);
-			recieved_message[strlen(chat_client->GetNickname()) + 1 + packet_size] = 0;
-			printf("recv : %s\n", recieved_message);
-			for (auto client : chat_clients) {
-				client.second->client_->Send(recieved_message, strlen(recieved_message));
+			else {
+				ChatClient * chat_client = target->second;
+				ChatSendPacket * chat_send_packet = (ChatSendPacket *)buffer;
+				DWORD chat_client_nickname_length = (DWORD)strlen(chat_client->GetNickname());
+				DWORD send_message_length = chat_client_nickname_length + 1 + packet_size + 1;
+				if (send_message_length > MESSAGE_MAX_LENGTH) {
+					// Do Something.
+				} 
+				else {
+					char * recieved_message = new char[send_message_length];
+					memcpy(recieved_message, chat_client->GetNickname(), chat_client_nickname_length);
+					recieved_message[chat_client_nickname_length] = ':';
+					memcpy(recieved_message + chat_client_nickname_length + 1, chat_send_packet->message_, packet_size);
+					recieved_message[send_message_length - 1] = 0;
+					printf("%s\n", recieved_message);
+					for (auto client : chat_clients) {
+						client.second->client_->Send(recieved_message, send_message_length);
+					}
+				}
 			}
 			break;
 		}
