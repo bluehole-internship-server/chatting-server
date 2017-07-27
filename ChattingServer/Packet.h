@@ -43,7 +43,7 @@ struct LoginAnswerPacket
 struct ChatSendPacket
 {
 	PacketHeader header_;
-	char message_[256];
+	char message_[MESSAGE_MAX_LENGTH];
 };
 
 enum ChatType : unsigned short
@@ -57,5 +57,7 @@ struct ChatReceivePacket
 {
 	PacketHeader header_;
 	ChatType type_;
-	char message_[MESSAGE_MAX_LENGTH];
+	unsigned short nickname_length_;
+	// Nickname + Message
+	char data_[NICKNAME_MAX_LENGTH + MESSAGE_MAX_LENGTH];
 };

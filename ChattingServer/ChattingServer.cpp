@@ -88,8 +88,8 @@ int main()
 			else {
 				ChatClient * chat_client = target->second;
 				ChatSendPacket * chat_send_packet = (ChatSendPacket *)buffer;
-				DWORD chat_client_nickname_length = (DWORD)strlen(chat_client->GetNickname());
-				DWORD send_message_length = chat_client_nickname_length + 1 + packet_size + 1;
+				unsigned short chat_client_nickname_length = (unsigned short)strlen(chat_client->GetNickname());
+				unsigned short send_message_length = sizeof(ChatReceivePacket::type_) + sizeof(ChatReceivePacket::nickname_length_) +  chat_client_nickname_length + packet_size;
 				if (send_message_length > MESSAGE_MAX_LENGTH) {
 					// Do Something.
 				} 
@@ -97,28 +97,23 @@ int main()
 					ChatReceivePacket * chat_receive_packet = new ChatReceivePacket();
 					chat_receive_packet->header_.type_ = CHAT_RECV;
 					
-					char * recieved_message = chat_receive_packet->message_;
-					memcpy(recieved_message, chat_client->GetNickname(), chat_client_nickname_length);
-					recieved_message[chat_client_nickname_length] = ':';
-					memcpy(recieved_message + chat_client_nickname_length + 1, chat_send_packet->message_, packet_size);
-					recieved_message[send_message_length - 1] = 0;
-					printf("%s\n", recieved_message);
+					char * return_data = chat_receive_packet->data_;
+					// Nickname is Null Terminated.
+					memcpy(return_data, chat_client->GetNickname(), chat_client_nickname_length);
+					memcpy(return_data + chat_client_nickname_length, chat_send_packet->message_, packet_size);
+					return_data[send_message_length - 1] = 0;
+					printf("%s\n", return_data);
 					
 					chat_receive_packet->type_ = NORMAL;
-					chat_receive_packet->header_.size_ = send_message_length + sizeof(ChatReceivePacket::type_);
+					chat_receive_packet->nickname_length_ = chat_client_nickname_length;
+					chat_receive_packet->header_.size_ = send_message_length;
 					for (auto client : chat_clients) {
-						client.second->client_->Send((char *)chat_receive_packet, sizeof(PacketHeader) + send_message_length + sizeof(ChatReceivePacket::type_));
+						client.second->client_->Send((char *)chat_receive_packet, sizeof(PacketHeader) + send_message_length);
 					}
 				}
 			}
 			break;
 		}
-/*
-
-		auto clients = server.GetAllClient();
-		for (auto c : clients) {
-			c->Send(buffer, recieved);
-		}*/
 	});
 	server.Init();
 	server.Run();
