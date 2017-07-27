@@ -9,12 +9,18 @@ int main()
 	std::unordered_map<core::Client *, ChatClient *> chat_clients;
 	core::Server server;
 	server.SetListenPort(55150);
-	//server.SetAcceptHandler([&server, &chat_clients](core::IoContext * io_context) {
-	//	ChatClient * chat_client = new ChatClient();
-	//	SecureZeroMemory(chat_client->GetNickname(), NICKNAME_MAX_LENGTH);
-	//	chat_client->client_ = io_context->client_;
-	//	chat_clients.insert({ io_context->client_ ,chat_client });
-	//});
+	server.SetDisconnectHandler([&server, &chat_clients](core::IoContext * io_context) {
+		auto target = chat_clients.find(io_context->client_);
+		if (target == chat_clients.end()) {
+			// Do Something.
+		}
+		else {
+			//ChatClient * disconnected_client = target->second;
+			printf("User \'%s\' Leave.\n", target->second->GetNickname());
+			delete target->second;
+			chat_clients.erase(io_context->client_);
+		}
+	});
 	server.SetReceiveHandler([&server, &chat_clients](core::IoContext * io_context) {
 		core::Client * reciever = io_context->client_;
 		
