@@ -89,26 +89,66 @@ int main()
 				ChatClient * chat_client = target->second;
 				ChatSendPacket * chat_send_packet = (ChatSendPacket *)buffer;
 				unsigned short chat_client_nickname_length = (unsigned short)strlen(chat_client->GetNickname());
-				unsigned short send_message_length = sizeof(ChatReceivePacket::type_) + sizeof(ChatReceivePacket::nickname_length_) +  chat_client_nickname_length + packet_size;
-				if (send_message_length > MESSAGE_MAX_LENGTH) {
-					// Do Something.
-				} 
-				else {
-					ChatReceivePacket * chat_receive_packet = new ChatReceivePacket();
-					chat_receive_packet->header_.type_ = CHAT_RECV;
-					
-					char * return_data = chat_receive_packet->data_;
-					// Nickname is Null Terminated.
-					memcpy(return_data, chat_client->GetNickname(), chat_client_nickname_length);
-					memcpy(return_data + chat_client_nickname_length, chat_send_packet->message_, packet_size);
-					return_data[send_message_length - 1] = 0;
-					printf("%s\n", return_data);
-					
-					chat_receive_packet->type_ = NORMAL;
-					chat_receive_packet->nickname_length_ = chat_client_nickname_length;
-					chat_receive_packet->header_.size_ = send_message_length;
-					for (auto client : chat_clients) {
-						client.second->client_->Send((char *)chat_receive_packet, sizeof(PacketHeader) + send_message_length);
+
+				// Tokenize
+				if (packet_size != 0) {
+					auto msg = chat_send_packet->message_;
+					bool is_command_able = (msg[0] == '/' || msg[0] == '!');
+					if (is_command_able) {
+						char command_type = msg[0];
+						char * command_body = nullptr;
+						unsigned short command_length = 0;
+						switch (command_type) {
+						case '/':
+							if (packet_size >= 4) {
+								char command = msg[1];
+								printf("Received Chatting Command is \'%c\'\n", command);
+								command_body = msg + 3;
+								command_length = packet_size - 3;
+								switch (command) {
+								case 'w':
+									break;
+								default:
+									break;
+								}
+							}
+							break;
+						case '!':
+							command_body = msg + 1;
+							command_length = packet_size - 1;
+							printf("Received Game Command is ");
+							for (int i = 0; i < command_length; ++i) {
+								putc(command_body[i], stdout);
+							}	putc('\n', stdout);
+							break;
+						default:
+							break;
+						}
+
+					}
+					else {
+						unsigned short send_message_length = sizeof(ChatReceivePacket::type_) + sizeof(ChatReceivePacket::nickname_length_) + chat_client_nickname_length + packet_size;
+						if (send_message_length > MESSAGE_MAX_LENGTH) {
+							// Do Something.
+						}
+						else {
+							ChatReceivePacket * chat_receive_packet = new ChatReceivePacket();
+							chat_receive_packet->header_.type_ = CHAT_RECV;
+
+							char * return_data = chat_receive_packet->data_;
+							// Nickname is **NOT** Null Terminated.
+							memcpy(return_data, chat_client->GetNickname(), chat_client_nickname_length);
+							memcpy(return_data + chat_client_nickname_length, chat_send_packet->message_, packet_size);
+							return_data[send_message_length - 1] = 0;
+							printf("%s\n", return_data);
+
+							chat_receive_packet->type_ = NORMAL;
+							chat_receive_packet->nickname_length_ = chat_client_nickname_length;
+							chat_receive_packet->header_.size_ = send_message_length;
+							for (auto client : chat_clients) {
+								client.second->client_->Send((char *)chat_receive_packet, sizeof(PacketHeader) + send_message_length);
+							}
+						}
 					}
 				}
 			}
