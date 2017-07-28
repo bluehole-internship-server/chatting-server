@@ -107,8 +107,43 @@ int main()
 								command_length = packet_size - 3;
 								switch (command) {
 								case 'w':
-									break;
-								default:
+									// Whisper
+									ChatClient * sender = chat_client;
+									int delimeter_offset = 0;
+									for (int i = 0; i < command_length; ++i) {
+										if (command_body[i] == ' ') {
+											delimeter_offset = i;
+										}
+									}
+									if (delimeter_offset == 0) {
+										// Do Something.
+									}
+									else {
+										// Make ChatReceivePacket for Whisper
+										unsigned short send_message_length = sizeof(ChatReceivePacket::type_) + sizeof(ChatReceivePacket::nickname_length_) + chat_client_nickname_length + command_length - delimeter_offset - 1;
+										if (send_message_length > MESSAGE_MAX_LENGTH) {
+											// Do Something.
+										}
+										else {
+											ChatReceivePacket * chat_receive_packet = new ChatReceivePacket();
+											chat_receive_packet->header_.size_ = send_message_length;
+											chat_receive_packet->header_.type_ = CHAT_RECV;
+											chat_receive_packet->type_ = WHISPER;
+											chat_receive_packet->nickname_length_ = chat_client_nickname_length;
+											for (auto client : chat_clients) {
+												auto nickname_length = strlen(client.second->GetNickname());
+												if (nickname_length == delimeter_offset && memcmp(client.second->GetNickname(), command_body, delimeter_offset) == 0) {
+													memcpy(chat_receive_packet->data_, sender->GetNickname(), delimeter_offset);
+													memcpy(chat_receive_packet->data_ + delimeter_offset, command_body + delimeter_offset + 1, command_length - delimeter_offset - 1);
+													chat_receive_packet->data_[send_message_length] = 0;
+													printf("%s\n", chat_receive_packet->data_);
+
+													client.second->client_->Send((char *)chat_receive_packet, sizeof(PacketHeader) + send_message_length);
+													break;
+												}
+											}
+										}
+									}
 									break;
 								}
 							}
@@ -131,20 +166,21 @@ int main()
 						if (send_message_length > MESSAGE_MAX_LENGTH) {
 							// Do Something.
 						}
-						else {
+						else 
+						{
 							ChatReceivePacket * chat_receive_packet = new ChatReceivePacket();
+							chat_receive_packet->header_.size_ = send_message_length;
 							chat_receive_packet->header_.type_ = CHAT_RECV;
 
 							char * return_data = chat_receive_packet->data_;
 							// Nickname is **NOT** Null Terminated.
 							memcpy(return_data, chat_client->GetNickname(), chat_client_nickname_length);
 							memcpy(return_data + chat_client_nickname_length, chat_send_packet->message_, packet_size);
-							return_data[send_message_length - 1] = 0;
+							return_data[send_message_length] = 0;
 							printf("%s\n", return_data);
 
 							chat_receive_packet->type_ = NORMAL;
 							chat_receive_packet->nickname_length_ = chat_client_nickname_length;
-							chat_receive_packet->header_.size_ = send_message_length;
 							for (auto client : chat_clients) {
 								client.second->client_->Send((char *)chat_receive_packet, sizeof(PacketHeader) + send_message_length);
 							}
