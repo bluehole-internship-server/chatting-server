@@ -43,7 +43,6 @@ bool FindDuplicateNickname(
 	auto clients = server.GetAllClient();
 
 	for (auto c : chat_clients) {
-		printf("%s %s\n", c.second->GetNickname(), requested_name);
 		if (strncmp(c.second->GetNickname(), requested_name, packet_size) == 0) {
 			if (strlen(c.second->GetNickname()) == packet_size) {
 				return true;
@@ -85,8 +84,7 @@ int main()
 			// Do Something.
 		}
 		else {
-			//ChatClient * disconnected_client = target->second;
-			printf("User \'%s\' Leave.\n", target->second->GetNickname());
+			printf("%s 나감.\n", target->second->GetNickname());
 			delete target->second;
 			chat_clients.erase(io_context->client_);
 		}
@@ -150,7 +148,7 @@ int main()
 						case '/':
 							if (packet_size >= 4) {
 								char command = msg[1];
-								printf("Received Chatting Command is \'%c\'\n", command);
+								printf("받은 채팅 명령어 %c\n", command);
 								command_body = msg + 3;
 								command_length = packet_size - 3;
 								switch (command) {
@@ -184,8 +182,7 @@ int main()
 													memcpy(chat_receive_packet->data_, sender->GetNickname(), delimeter_offset);
 													memcpy(chat_receive_packet->data_ + delimeter_offset, command_body + delimeter_offset + 1, command_length - delimeter_offset - 1);
 													chat_receive_packet->data_[send_message_length] = 0;
-													printf("%s\n", chat_receive_packet->data_);
-
+													printf("%s --> %s: %s\n", sender->GetNickname(), client.second->GetNickname(), chat_receive_packet->data_ + delimeter_offset);
 													client.second->client_->Send((char *)chat_receive_packet, sizeof(PacketHeader) + send_message_length);
 													break;
 												}
@@ -199,7 +196,7 @@ int main()
 						case '!':
 							command_body = msg + 1;
 							command_length = packet_size - 1;
-							printf("Received Game Command is ");
+							printf("받은 게임 명령어 ");
 							for (int i = 0; i < command_length; ++i) {
 								putc(command_body[i], stdout);
 							}	putc('\n', stdout);

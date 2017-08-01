@@ -16,7 +16,6 @@ Client * ClientManager::NewClient()
 }
 VOID ClientManager::DeleteClient(Client * client)
 {
-	SpinlockGuard lock(lock_);
 	client_pool_.Destroy(client);
 }
 VOID ClientManager::AddClient(Client * client)
