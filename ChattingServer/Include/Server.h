@@ -34,14 +34,22 @@ public:
 	VOID Run();
 
 	VOID SetPacketHeaderSize(USHORT size);
-	VOID SetAcceptHandler(std::function<void(IoContext *)>);
-	VOID SetReceiveHandler(std::function<void(IoContext *)>);
-	VOID SetSendHandler(std::function<void(IoContext *)>);
-	VOID SetDisconnectHandler(std::function<void(IoContext *)>);
-	VOID AcceptHandler(IoContext *);
-	VOID ReceiveHandler(IoContext *);
-	VOID SendHandler(IoContext *);
-	VOID DisconnectHandler(IoContext *);
+	VOID SetPreAcceptHandler(std::function<void(IoContext *)>);
+	VOID SetPreReceiveHandler(std::function<void(IoContext *)>);
+	VOID SetPreSendHandler(std::function<void(IoContext *)>);
+	VOID SetPreDisconnectHandler(std::function<void(IoContext *)>);
+	VOID SetPostAcceptHandler(std::function<void(IoContext *)>);
+	VOID SetPostReceiveHandler(std::function<void(IoContext *)>);
+	VOID SetPostSendHandler(std::function<void(IoContext *)>);
+	VOID SetPostDisconnectHandler(std::function<void(IoContext *)>);
+	VOID PreAcceptHandler(IoContext *);
+	VOID PreReceiveHandler(IoContext *);
+	VOID PreSendHandler(IoContext *);
+	VOID PreDisconnectHandler(IoContext *);
+	VOID PostAcceptHandler(IoContext *);
+	VOID PostReceiveHandler(IoContext *);
+	VOID PostSendHandler(IoContext *);
+	VOID PostDisconnectHandler(IoContext *);
 	std::vector<Client *>& GetAllClient();
 
 	static USHORT packet_header_size_;
@@ -57,10 +65,14 @@ private:
 	SOCKET listen_socket_;
 	USHORT listen_port_;
     ObjectPool<IoContext> io_context_pool_;
-	std::function<void(IoContext *)> accept_handler_;
-	std::function<void(IoContext *)> receive_handler_;
-	std::function<void(IoContext *)> send_handler_;
-	std::function<void(IoContext *)> disconnect_handler_;
+	std::function<void(IoContext *)> pre_accept_handler_;
+	std::function<void(IoContext *)> pre_receive_handler_;
+	std::function<void(IoContext *)> pre_send_handler_;
+	std::function<void(IoContext *)> pre_disconnect_handler_;
+	std::function<void(IoContext *)> post_accept_handler_;
+	std::function<void(IoContext *)> post_receive_handler_;
+	std::function<void(IoContext *)> post_send_handler_;
+	std::function<void(IoContext *)> post_disconnect_handler_;
 
 	void PrintError(wchar_t * target, DWORD error_code);
 };	

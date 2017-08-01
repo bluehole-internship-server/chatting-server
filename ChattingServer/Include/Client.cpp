@@ -10,7 +10,6 @@ Client::Client()
 }
 Client::~Client()
 {
-	puts("Good Bye.");
 }
 BOOL Client::PrepareReceive()
 {
@@ -23,8 +22,6 @@ BOOL Client::PrepareReceive()
 }
 BOOL Client::Receive()
 {
-	wprintf(L"Receive is Prepared.\n");
-
 	IoContext * recv_context = new IoContext(this, IO_RECV);
 	DWORD recieved_bytes = 0;
 	DWORD flags = 0;
@@ -37,7 +34,6 @@ BOOL Client::Receive()
 }
 BOOL Client::PostReceive(DWORD received_bytes, std::function<void(IoContext *)>& handler, IoContext& io_context)
 {
-	wprintf(L"Received.\n");
 	UWORD packet_size = ((UWORD)*(recv_buffer_.Read()));
 	if(received_bytes >= packet_size - recv_buffer_.offset_)
 	{

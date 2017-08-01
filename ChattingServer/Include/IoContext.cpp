@@ -1,4 +1,5 @@
 #include "IoContext.h"
+#include <stdio.h>
 
 namespace core
 {

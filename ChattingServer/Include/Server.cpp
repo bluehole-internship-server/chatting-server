@@ -88,28 +88,31 @@ VOID Server::IocpWork(Server &server)
 		auto client = io_context->client_;
 		switch (io_context->io_type_) {
 			case IO_ACCEPT:
+				server.PreAcceptHandler(io_context);
 				server.client_manager_->AddClient(client);
 				io_result = client->PrepareReceive();
-				server.AcceptHandler(io_context);
+				server.PostAcceptHandler(io_context);
 				break;
 			case IO_RECV_READY:
 				io_result = client->Receive();
 				break;
 			case IO_RECV:
-				client->PostReceive(received_bytes, server.receive_handler_, *io_context);
+				client->PostReceive(received_bytes, server.post_receive_handler_, *io_context);
 				io_result = client->PrepareReceive();
 				break;
 			case IO_SEND:
+				server.PreSendHandler(io_context);
 				io_result = client->PostSend(received_bytes);
-				server.SendHandler(io_context);
+				server.PostSendHandler(io_context);
 				break;
 			case IO_DISCONNECT:
+				server.PreDisconnectHandler(io_context);
 				server.client_manager_->RemoveClient(client);
 				io_result = true;
-				server.DisconnectHandler(io_context);
+				server.PostDisconnectHandler(io_context);
 				break;
 			default:
-				wprintf(L"What? %d\n", io_context->io_type_);
+				throw "Unknown Io Type";
 				break;
 		}
 
@@ -117,6 +120,7 @@ VOID Server::IocpWork(Server &server)
 		{
 			client->Disconnect();
 		}
+		server.io_context_pool_.Destroy(io_context);
 	}
 }
 VOID Server::Run()
@@ -138,48 +142,84 @@ VOID Server::Run()
 		_ASSERT(result == completion_port_);
 				
 		AcceptEx(listen_socket_, client_socket, accept_buffer_, 0, sizeof(SOCKADDR_IN) + 16, sizeof(SOCKADDR_IN) + 16, &received_bytes, (LPOVERLAPPED)io_context);
-		Sleep(1000);
+		Sleep(100);
 	}
 }
 VOID Server::SetPacketHeaderSize(USHORT size)
 {
 	packet_header_size_ = size;
 }
-VOID Server::SetAcceptHandler(std::function<void(IoContext *)> handler)
+VOID Server::SetPreAcceptHandler(std::function<void(IoContext *)> handler)
 {
-	accept_handler_ = std::move(handler);
+	pre_accept_handler_ = std::move(handler);
 }
-VOID Server::SetReceiveHandler(std::function<void(IoContext *)> handler)
+VOID Server::SetPreReceiveHandler(std::function<void(IoContext *)> handler)
 {
-	receive_handler_ = std::move(handler);
+	pre_receive_handler_ = std::move(handler);
 }
-VOID Server::SetSendHandler(std::function<void(IoContext *)> handler)
+VOID Server::SetPreSendHandler(std::function<void(IoContext *)> handler)
 {
-	send_handler_ = std::move(handler);
+	pre_send_handler_ = std::move(handler);
 }
-VOID Server::SetDisconnectHandler(std::function<void(IoContext *)> handler)
+VOID Server::SetPreDisconnectHandler(std::function<void(IoContext *)> handler)
 {
-	disconnect_handler_ = std::move(handler);
+	pre_disconnect_handler_ = std::move(handler);
 }
-VOID Server::AcceptHandler(IoContext * io_context)
+VOID Server::SetPostAcceptHandler(std::function<void(IoContext *)> handler)
 {
-	if (accept_handler_ != nullptr)
-		accept_handler_(io_context);
+	post_accept_handler_ = std::move(handler);
 }
-VOID Server::ReceiveHandler(IoContext * io_context)
+VOID Server::SetPostReceiveHandler(std::function<void(IoContext *)> handler)
 {
-	if (receive_handler_ != nullptr)
-		receive_handler_(io_context);
+	post_receive_handler_ = std::move(handler);
 }
-VOID Server::SendHandler(IoContext * io_context)
+VOID Server::SetPostSendHandler(std::function<void(IoContext *)> handler)
 {
-	if (send_handler_ != nullptr)
-		send_handler_(io_context);
+	post_send_handler_ = std::move(handler);
 }
-VOID Server::DisconnectHandler(IoContext * io_context)
+VOID Server::SetPostDisconnectHandler(std::function<void(IoContext *)> handler)
 {
-	if (disconnect_handler_ != nullptr)
-		disconnect_handler_(io_context);
+	post_disconnect_handler_ = std::move(handler);
+}
+VOID Server::PreAcceptHandler(IoContext * io_context)
+{
+	if (pre_accept_handler_ != nullptr)
+		pre_accept_handler_(io_context);
+}
+VOID Server::PreReceiveHandler(IoContext * io_context)
+{
+	if (pre_receive_handler_ != nullptr)
+		pre_receive_handler_(io_context);
+}
+VOID Server::PreSendHandler(IoContext * io_context)
+{
+	if (pre_send_handler_ != nullptr)
+		pre_send_handler_(io_context);
+}
+VOID Server::PreDisconnectHandler(IoContext * io_context)
+{
+	if (pre_disconnect_handler_ != nullptr)
+		pre_disconnect_handler_(io_context);
+}
+VOID Server::PostAcceptHandler(IoContext * io_context)
+{
+	if (post_accept_handler_ != nullptr)
+		post_accept_handler_(io_context);
+}
+VOID Server::PostReceiveHandler(IoContext * io_context)
+{
+	if (post_receive_handler_ != nullptr)
+		post_receive_handler_(io_context);
+}
+VOID Server::PostSendHandler(IoContext * io_context)
+{
+	if (post_send_handler_ != nullptr)
+		post_send_handler_(io_context);
+}
+VOID Server::PostDisconnectHandler(IoContext * io_context)
+{
+	if (post_disconnect_handler_ != nullptr)
+		post_disconnect_handler_(io_context);
 }
 std::vector<Client*>& Server::GetAllClient()
 {

@@ -20,6 +20,7 @@ public:
 protected:
 	std::vector<Client *>clients_;
 	core::ObjectPool<Client> client_pool_;
+	core::Spinlock lock_;
 };
 }
 
