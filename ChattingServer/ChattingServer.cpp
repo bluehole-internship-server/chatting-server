@@ -29,7 +29,24 @@ LoginAnswerPacket * CreateLoginAnswerPacket(unsigned int packet_size)
 		return login_answer_packet;
 	}
 }
+bool FindDuplicateNickname(
+	core::Server &server, 
+	std::unordered_map<core::Client *, ChatClient *> &chat_clients, 
+	char * requested_name, 
+	unsigned int packet_size)
+{
+	auto clients = server.GetAllClient();
 
+	for (auto c : chat_clients) {
+		printf("%s %s\n", c.second->GetNickname(), requested_name);
+		if (strncmp(c.second->GetNickname(), requested_name, packet_size) == 0) {
+			if (strlen(c.second->GetNickname()) == packet_size) {
+				return true;
+			}
+		}
+	}
+	return false;
+}
 ChatReceivePacket * CreateChatReturnPacket(
 	unsigned short send_message_length, 
 	char * nickname, 
@@ -83,40 +100,27 @@ int main()
 		PacketType packet_type = packet_header->type_;
 
 		switch (packet_type) {
-		case LOGIN_REQ:
+		case LOGIN_REQ: {
 			auto login_answer_packet = CreateLoginAnswerPacket(packet_size);
-			if(login_answer_packet != nullptr)
+			if (login_answer_packet != nullptr)
 			{
 				LoginRequestPacket * login_request_packet = (LoginRequestPacket *)buffer;
 				char * requested_name = new char[packet_size + 1];
 				memcpy(requested_name, login_request_packet->user_name_, packet_size);
 				requested_name[packet_size] = 0;
-				auto clients = server.GetAllClient();
-				bool is_duplicated = false;
-				for (auto c : chat_clients) {
-					printf("%s %s\n", c.second->GetNickname(), requested_name);
-					if (strncmp(c.second->GetNickname(), requested_name, packet_size) == 0) {
-						if (strlen(c.second->GetNickname()) == packet_size) {
-							is_duplicated = true;
-							break;
-						}
-					}
-				}
-				if (is_duplicated) {
-					login_answer_packet->answer_ = FAIL_DUPLICATE;
-				}
-				else {
-					login_answer_packet->answer_ = SUCCESS;
-
+				bool is_duplicated = FindDuplicateNickname(server, chat_clients, requested_name, packet_size);
+				login_answer_packet->answer_ = is_duplicated ? FAIL_DUPLICATE : SUCCESS;
+				if (login_answer_packet->answer_ == SUCCESS) {
 					ChatClient * chat_client = new ChatClient();
 					SecureZeroMemory(chat_client->GetNickname(), NICKNAME_MAX_LENGTH);
-					chat_client->client_ = reciever;					
+					chat_client->client_ = reciever;
 					chat_client->SetNickname(requested_name);
 					chat_clients.insert({ reciever ,chat_client });
 				}
 			}
-			reciever->Send((char *)&login_answer_packet, sizeof(login_answer_packet));
-			break;
+			reciever->Send((char *)login_answer_packet, sizeof(LoginAnswerPacket));
+		}
+		break;
 		case CHAT_SEND:
 			auto target = chat_clients.find(reciever);
 			if (target == chat_clients.end()) {
