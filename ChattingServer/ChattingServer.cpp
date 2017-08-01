@@ -122,7 +122,7 @@ int main()
 					chat_client->client_ = reciever;
 					chat_client->SetNickname(requested_name);
 					chat_clients.insert({ reciever ,chat_client });
-					printf("%s ï¿½ï¿½ï¿½ï¿½.\n", chat_client->GetNickname());
+					printf("%s Á¢¼Ó.\n", chat_client->GetNickname());
 				}
 			}
 			reciever->Send((char *)login_answer_packet, sizeof(LoginAnswerPacket));
@@ -216,7 +216,10 @@ int main()
 						}
 						else 
 						{
-							// ChatReceivePacket * CreateChatReturnPacket(char * return_data, char * nickname, unsigned int nickname_length, char * message, unsigned int message_length)
+							printf("%s: ", chat_client->GetNickname());
+							for (unsigned int i = 0; i < packet_size; ++i)
+								putc(chat_send_packet->message_[i], stdout);
+							putc('\n', stdout);
 							ChatReceivePacket * return_packet = CreateChatReturnPacket(send_message_length, chat_client->GetNickname(), chat_client_nickname_length, chat_send_packet->message_, packet_size);
 							for (auto client : chat_clients) {
 								client.second->client_->Send((char *)return_packet, sizeof(PacketHeader) + send_message_length);
