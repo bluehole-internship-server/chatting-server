@@ -4,6 +4,32 @@
 #include <unordered_map>
 #include <vector>
 
+LoginAnswerPacket * CreateLoginAnswerPacket(unsigned int packet_size)
+{
+	bool result = true;
+	LoginAnswerPacket * login_answer_packet = new LoginAnswerPacket();
+	login_answer_packet->answer_ = FAIL_UNKNOWN;
+	login_answer_packet->header_.size_ = sizeof(USHORT);
+	login_answer_packet->header_.type_ = LOGIN_ANS;
+	
+	if (packet_size > NICKNAME_MAX_LENGTH) {
+		login_answer_packet->answer_ = FAIL_TOO_LONG;
+		result = false;
+	}
+	else if (packet_size < NICKNAME_MIN_LENGTH) {
+		login_answer_packet->answer_ = FAIL_TOO_SHORT;
+		result = false;
+	}
+
+	if (result == false) {
+		delete login_answer_packet;
+		return nullptr;
+	}
+	else {
+		return login_answer_packet;
+	}
+}
+
 int main()
 {
 	std::unordered_map<core::Client *, ChatClient *> chat_clients;
@@ -37,19 +63,9 @@ int main()
 
 		switch (packet_type) {
 		case LOGIN_REQ:
-			LoginAnswerPacket login_answer_packet;
+			auto login_answer_packet = CreateLoginAnswerPacket(packet_size);
+			if(login_answer_packet != nullptr)
 			{
-				login_answer_packet.answer_ = FAIL_UNKNOWN;
-				login_answer_packet.header_.size_ = sizeof(USHORT);
-				login_answer_packet.header_.type_ = LOGIN_ANS;
-			}
-			if(packet_size > NICKNAME_MAX_LENGTH) {
-				login_answer_packet.answer_ = FAIL_TOO_LONG;
-			}
-			else if (packet_size < NICKNAME_MIN_LENGTH) {
-				login_answer_packet.answer_ = FAIL_TOO_SHORT;
-			}
-			else {
 				LoginRequestPacket * login_request_packet = (LoginRequestPacket *)buffer;
 				char * requested_name = new char[packet_size + 1];
 				memcpy(requested_name, login_request_packet->user_name_, packet_size);
@@ -66,10 +82,10 @@ int main()
 					}
 				}
 				if (is_duplicated) {
-					login_answer_packet.answer_ = FAIL_DUPLICATE;
+					login_answer_packet->answer_ = FAIL_DUPLICATE;
 				}
 				else {
-					login_answer_packet.answer_ = SUCCESS;
+					login_answer_packet->answer_ = SUCCESS;
 
 					ChatClient * chat_client = new ChatClient();
 					SecureZeroMemory(chat_client->GetNickname(), NICKNAME_MAX_LENGTH);
