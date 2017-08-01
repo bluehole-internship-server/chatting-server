@@ -122,6 +122,7 @@ int main()
 					chat_client->client_ = reciever;
 					chat_client->SetNickname(requested_name);
 					chat_clients.insert({ reciever ,chat_client });
+					printf("%s ����.\n", chat_client->GetNickname());
 				}
 			}
 			reciever->Send((char *)login_answer_packet, sizeof(LoginAnswerPacket));
