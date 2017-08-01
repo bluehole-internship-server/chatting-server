@@ -30,6 +30,27 @@ LoginAnswerPacket * CreateLoginAnswerPacket(unsigned int packet_size)
 	}
 }
 
+ChatReceivePacket * CreateChatReturnPacket(
+	unsigned short send_message_length, 
+	char * nickname, 
+	unsigned int nickname_length, 
+	char * message, 
+	unsigned int message_length)
+{
+	ChatReceivePacket * return_packet = new ChatReceivePacket();
+	return_packet->header_.size_ = send_message_length;
+	return_packet->header_.type_ = CHAT_RECV;
+
+	char * return_data = return_packet->data_;
+	
+	memcpy(return_data, nickname, nickname_length);
+	memcpy(return_data + nickname_length, message, message_length);
+
+	return_packet->type_ = NORMAL;
+	return_packet->nickname_length_ = nickname_length;
+
+	return return_packet;
+}
 int main()
 {
 	std::unordered_map<core::Client *, ChatClient *> chat_clients;
@@ -184,21 +205,10 @@ int main()
 						}
 						else 
 						{
-							ChatReceivePacket * chat_receive_packet = new ChatReceivePacket();
-							chat_receive_packet->header_.size_ = send_message_length;
-							chat_receive_packet->header_.type_ = CHAT_RECV;
-
-							char * return_data = chat_receive_packet->data_;
-							// Nickname is **NOT** Null Terminated.
-							memcpy(return_data, chat_client->GetNickname(), chat_client_nickname_length);
-							memcpy(return_data + chat_client_nickname_length, chat_send_packet->message_, packet_size);
-							return_data[send_message_length] = 0;
-							printf("%s\n", return_data);
-
-							chat_receive_packet->type_ = NORMAL;
-							chat_receive_packet->nickname_length_ = chat_client_nickname_length;
+							// ChatReceivePacket * CreateChatReturnPacket(char * return_data, char * nickname, unsigned int nickname_length, char * message, unsigned int message_length)
+							ChatReceivePacket * return_packet = CreateChatReturnPacket(send_message_length, chat_client->GetNickname(), chat_client_nickname_length, chat_send_packet->message_, packet_size);
 							for (auto client : chat_clients) {
-								client.second->client_->Send((char *)chat_receive_packet, sizeof(PacketHeader) + send_message_length);
+								client.second->client_->Send((char *)return_packet, sizeof(PacketHeader) + send_message_length);
 							}
 						}
 					}
