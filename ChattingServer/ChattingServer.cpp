@@ -77,6 +77,7 @@ int main()
 	std::unordered_map<unsigned int, ReturnPacketCounter *> return_packet_counters;
 	std::unordered_map<core::Client *, ChatClient *> chat_clients;
 	core::Server server;
+	core::Spinlock lock;
 	server.SetListenPort(55150);
 	server.SetPostDisconnectHandler([&server, &chat_clients](core::IoContext * io_context) {
 		auto target = chat_clients.find(io_context->client_);
@@ -105,6 +106,7 @@ int main()
 
 		switch (packet_type) {
 		case LOGIN_REQ: {
+			core::SpinlockGuard lockguard(lock);
 			auto login_answer_packet = CreateLoginAnswerPacket(packet_size);
 			if (login_answer_packet != nullptr)
 			{
@@ -127,7 +129,9 @@ int main()
 		}
 		break;
 		case CHAT_SEND:
+			lock.Lock();
 			auto target = chat_clients.find(reciever);
+			lock.Unlock();
 			if (target == chat_clients.end()) {
 				// Do Something.
 			}
@@ -176,6 +180,7 @@ int main()
 											chat_receive_packet->header_.type_ = CHAT_RECV;
 											chat_receive_packet->type_ = WHISPER;
 											chat_receive_packet->nickname_length_ = chat_client_nickname_length;
+											core::SpinlockGuard lockguard(lock);
 											for (auto client : chat_clients) {
 												auto nickname_length = strlen(client.second->GetNickname());
 												if (nickname_length == delimeter_offset && memcmp(client.second->GetNickname(), command_body, delimeter_offset) == 0) {
@@ -218,6 +223,7 @@ int main()
 								putc(chat_send_packet->message_[i], stdout);
 							putc('\n', stdout);
 							ChatReceivePacket * return_packet = CreateChatReturnPacket(send_message_length, chat_client->GetNickname(), chat_client_nickname_length, chat_send_packet->message_, packet_size);
+							core::SpinlockGuard lockguard(lock);
 							for (auto client : chat_clients) {
 								client.second->client_->Send((char *)return_packet, sizeof(PacketHeader) + send_message_length);
 							}
