@@ -2,6 +2,7 @@
 #include "Packet.h"
 #include "ChatClient.h"
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 struct ReturnPacketCounter
@@ -35,21 +36,11 @@ LoginAnswerPacket * CreateLoginAnswerPacket(unsigned int packet_size)
 	}
 }
 bool FindDuplicateNickname(
-	core::Server &server, 
-	std::unordered_map<core::Client *, ChatClient *> &chat_clients, 
-	char * requested_name, 
-	unsigned int packet_size)
+	std::unordered_set<std::string> &client_names,
+	char * requested_name)
 {
-	auto clients = server.GetAllClient();
-
-	for (auto c : chat_clients) {
-		if (strncmp(c.second->GetNickname(), requested_name, packet_size) == 0) {
-			if (strlen(c.second->GetNickname()) == packet_size) {
-				return true;
-			}
-		}
-	}
-	return false;
+	std::string requested(requested_name);
+	return client_names.find(requested) != client_names.end();
 }
 ChatReceivePacket * CreateChatReturnPacket(
 	unsigned short send_message_length, 
@@ -76,6 +67,7 @@ int main()
 {
 	std::unordered_map<unsigned int, ReturnPacketCounter *> return_packet_counters;
 	std::unordered_map<core::Client *, ChatClient *> chat_clients;
+	std::unordered_set<std::string> client_names;
 	core::Server server;
 	core::Spinlock lock;
 	server.SetListenPort(55150);
@@ -106,7 +98,6 @@ int main()
 
 		switch (packet_type) {
 		case LOGIN_REQ: {
-			core::SpinlockGuard lockguard(lock);
 			auto login_answer_packet = CreateLoginAnswerPacket(packet_size);
 			if (login_answer_packet != nullptr)
 			{
@@ -114,7 +105,8 @@ int main()
 				char * requested_name = new char[packet_size + 1];
 				memcpy(requested_name, login_request_packet->user_name_, packet_size);
 				requested_name[packet_size] = 0;
-				bool is_duplicated = FindDuplicateNickname(server, chat_clients, requested_name, packet_size);
+				core::SpinlockGuard lockguard(lock);
+				bool is_duplicated = FindDuplicateNickname(client_names, requested_name);
 				login_answer_packet->answer_ = is_duplicated ? FAIL_DUPLICATE : SUCCESS;
 				if (login_answer_packet->answer_ == SUCCESS) {
 					ChatClient * chat_client = new ChatClient();
@@ -122,6 +114,7 @@ int main()
 					chat_client->client_ = reciever;
 					chat_client->SetNickname(requested_name);
 					chat_clients.insert({ reciever ,chat_client });
+					client_names.insert(std::string(requested_name));
 					printf("%s Á¢¼Ó.\n", chat_client->GetNickname());
 				}
 			}
