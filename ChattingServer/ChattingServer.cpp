@@ -66,13 +66,24 @@ ChatReceivePacket * CreateChatReturnPacket(
 
 	return return_packet;
 }
+void SetGameCommands(std::unordered_map<std::string, unsigned int> &game_commands)
+{
+	game_commands.insert({ "위", 0 });
+	game_commands.insert({ "아래", 0 });
+	game_commands.insert({ "왼쪽", 0 });
+	game_commands.insert({ "오른쪽", 0 });
+}
 int main()
 {
 	std::unordered_map<unsigned int, ReturnPacketCounter *> return_packet_counters;
 	std::unordered_map<core::Client *, ChatClient *> chat_clients;
 	std::unordered_set<std::string> client_names;
+	std::unordered_map<std::string, unsigned int> game_commands;
 	core::Server server;
 	core::Spinlock lock, command_lock;
+
+	SetGameCommands(game_commands);
+
 	server.SetListenPort(55150);
 	server.SetPostDisconnectHandler([&server, &chat_clients](core::IoContext * io_context) {
 		auto target = chat_clients.find(io_context->client_);
@@ -195,12 +206,22 @@ int main()
 							}
 							break;
 						case '!':
+						{
 							command_body = msg + 1;
 							command_length = packet_size - 1;
 							printf("받은 게임 명령어 ");
-							for (int i = 0; i < command_length; ++i) {
-								putc(command_body[i], stdout);
-							}	putc('\n', stdout);
+							command_body[command_length] = 0;
+							printf("%s\n", command_body);
+							std::string command(command_body);
+							{
+								core::SpinlockGuard lockguard(command_lock);
+								auto finder = game_commands.find(command);
+								if (finder != game_commands.end())
+									++(finder->second);
+								else
+									printf("알 수 없는 게임 명령어: %s\n", command.c_str());
+							}
+						}
 							break;
 						default:
 							break;
