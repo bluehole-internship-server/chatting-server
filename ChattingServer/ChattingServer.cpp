@@ -5,6 +5,7 @@
 #include <unordered_set>
 #include <vector>
 #include <chrono>
+#include <algorithm>
 
 #define GAME_INTERVAL 1000
 
@@ -255,11 +256,15 @@ int main()
 	server.Init();
 	server.AddWork([&]() {
 		while (true) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(GAME_INTERVAL));
+			std::this_thread::sleep_for(std::chrono::milliseconds(GAME_INTERVAL * 5));
+			auto picked_command = std::max_element(game_commands.begin(), game_commands.end(),
+				[](std::pair<std::string, unsigned int> a, std::pair<std::string, unsigned int> b)->bool { return a.second < b.second; });
+			if(picked_command->second != 0)
+				printf("선택된 게임 명령어: %s\n", picked_command->first.c_str());
 			core::SpinlockGuard  lockguard(command_lock);
-			// To Do: Pick a Command
-			// To Do: Clear the Command List
-
+			for (auto &command : game_commands) {
+				command.second = 0;
+			}
 			// To Do: Send Picked Command to Logic Server 
 		}
 	});
