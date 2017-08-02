@@ -4,6 +4,9 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
+#include <chrono>
+
+#define GAME_INTERVAL 1000
 
 struct ReturnPacketCounter
 {
@@ -69,7 +72,7 @@ int main()
 	std::unordered_map<core::Client *, ChatClient *> chat_clients;
 	std::unordered_set<std::string> client_names;
 	core::Server server;
-	core::Spinlock lock;
+	core::Spinlock lock, command_lock;
 	server.SetListenPort(55150);
 	server.SetPostDisconnectHandler([&server, &chat_clients](core::IoContext * io_context) {
 		auto target = chat_clients.find(io_context->client_);
@@ -229,6 +232,16 @@ int main()
 		}
 	});
 	server.Init();
+	server.AddWork([&]() {
+		while (true) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(GAME_INTERVAL));
+			core::SpinlockGuard  lockguard(command_lock);
+			// To Do: Pick a Command
+			// To Do: Clear the Command List
+
+			// To Do: Send Picked Command to Logic Server 
+		}
+	});
 	server.Run();
 	return 0;
 }
