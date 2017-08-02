@@ -13,7 +13,7 @@ Client::~Client()
 }
 BOOL Client::PrepareReceive()
 {
-	IoContext * recv_ready_context = new IoContext(this, IO_RECV_READY);
+	IoContext * recv_ready_context = Server::io_context_pool_->Construct(IoContext(this, IO_RECV_READY));
 	DWORD recieved_bytes = 0;
 	DWORD flags = 0;
 
@@ -22,7 +22,7 @@ BOOL Client::PrepareReceive()
 }
 BOOL Client::Receive()
 {
-	IoContext * recv_context = new IoContext(this, IO_RECV);
+	IoContext * recv_context = Server::io_context_pool_->Construct(IoContext(this, IO_RECV));
 	DWORD recieved_bytes = 0;
 	DWORD flags = 0;
 	recv_context->buffer_.len = recv_buffer_.GetRemained();
@@ -45,7 +45,7 @@ BOOL Client::PostReceive(DWORD received_bytes, std::function<void(IoContext *)>&
 }
 BOOL Client::Send(char * data, DWORD size)
 {
-	IoContext * send_context = new IoContext(this, IO_SEND);
+	IoContext * send_context = Server::io_context_pool_->Construct(IoContext(this, IO_SEND));
 	DWORD sent;
 
 	memcpy(send_buffer_.GetBuffer(), data, size);
@@ -63,7 +63,7 @@ BOOL Client::PostSend(DWORD sent_bytes)
 }
 BOOL Client::Disconnect()
 {
-	IoContext * disconnect_context = new IoContext(this, IO_DISCONNECT);
+	IoContext * disconnect_context = Server::io_context_pool_->Construct(IoContext(this, IO_DISCONNECT));
 	core::Server::DisconnectEx(socket_, (LPWSAOVERLAPPED)disconnect_context, 0, 0);
 	return 0;
 }

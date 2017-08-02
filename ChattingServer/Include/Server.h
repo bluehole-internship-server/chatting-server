@@ -27,6 +27,7 @@ public:
 	~Server();
 	VOID Init();
 	VOID SetListenPort(USHORT);
+	VOID SetFastSocketOption(Client *);
 	template <class F, class... Args>
 	auto AddWork(F&& f, Args&&... args)
 		-> std::future<typename std::result_of<F(Args...)>::type>;
@@ -57,6 +58,7 @@ public:
 	static LPFN_ACCEPTEX AcceptEx;
 	static LPFN_CONNECTEX ConnectEx;
 	static char accept_buffer_[64];
+	static ObjectPool<IoContext> * io_context_pool_;
 
 private:
 	static ThreadPool *thread_pool_;
@@ -64,7 +66,6 @@ private:
 	HANDLE completion_port_;
 	SOCKET listen_socket_;
 	USHORT listen_port_;
-    ObjectPool<IoContext> io_context_pool_;
 	std::function<void(IoContext *)> pre_accept_handler_;
 	std::function<void(IoContext *)> pre_receive_handler_;
 	std::function<void(IoContext *)> pre_send_handler_;

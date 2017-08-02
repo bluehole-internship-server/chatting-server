@@ -16,11 +16,12 @@ public:
 	VOID DeleteClient(Client *);
 	VOID AddClient(Client *);
 	VOID RemoveClient(Client *);
-
 protected:
 	std::vector<Client *>clients_;
 	core::ObjectPool<Client> client_pool_;
 	core::Spinlock lock_;
+	unsigned int limit_;
+	unsigned int current_;
 };
 }
 

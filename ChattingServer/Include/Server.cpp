@@ -6,6 +6,7 @@ LPFN_ACCEPTEX core::Server::AcceptEx = nullptr;
 LPFN_CONNECTEX core::Server::ConnectEx = nullptr;
 char core::Server::accept_buffer_[64] = { 0, };
 core::ThreadPool * core::Server::thread_pool_ = nullptr;
+core::ObjectPool<core::IoContext> * core::Server::io_context_pool_ = nullptr;
 
 namespace core 
 {
@@ -71,10 +72,22 @@ VOID Server::Init()
 		for (int i = 0; i < WORKER_AMOUNT; ++i)
 			thread_pool_->Enqueue(IocpWork, *this);
 	}
+	
+	// Create New IoContext Pool
+	io_context_pool_ = new core::ObjectPool<core::IoContext>;
 }
 VOID Server::SetListenPort(USHORT port)
 {
 	listen_port_ = port;
+}
+VOID Server::SetFastSocketOption(Client * client)
+{
+	int opt = 0;
+	setsockopt(client->socket_, IPPROTO_TCP, TCP_NODELAY, (const char*)&opt, sizeof(int));
+	LINGER lingerOption;
+	lingerOption.l_onoff = 1;
+	lingerOption.l_linger = 0;
+	setsockopt(client->socket_, SOL_SOCKET, SO_LINGER, (char*)&lingerOption, sizeof(LINGER));
 }
 VOID Server::IocpWork(Server &server)
 {
@@ -89,6 +102,7 @@ VOID Server::IocpWork(Server &server)
 		switch (io_context->io_type_) {
 			case IO_ACCEPT:
 				server.PreAcceptHandler(io_context);
+				server.SetFastSocketOption(client);
 				server.client_manager_->AddClient(client);
 				io_result = client->PrepareReceive();
 				server.PostAcceptHandler(io_context);
@@ -120,7 +134,7 @@ VOID Server::IocpWork(Server &server)
 		{
 			client->Disconnect();
 		}
-		server.io_context_pool_.Destroy(io_context);
+		io_context_pool_->Destroy(io_context);
 	}
 }
 VOID Server::Run()
@@ -133,16 +147,17 @@ VOID Server::Run()
 		DWORD received_bytes;
 
 		Client * new_client = client_manager_->NewClient();
-        
-		new_client->socket_ = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-		IoContext * io_context = io_context_pool_.Construct(IoContext(new_client, IO_ACCEPT));
-		SOCKET client_socket = io_context->client_->socket_;
-		
-		auto result = CreateIoCompletionPort((HANDLE)client_socket, completion_port_, (ULONG_PTR)client_socket, 0);
-		_ASSERT(result == completion_port_);
-				
-		AcceptEx(listen_socket_, client_socket, accept_buffer_, 0, sizeof(SOCKADDR_IN) + 16, sizeof(SOCKADDR_IN) + 16, &received_bytes, (LPOVERLAPPED)io_context);
-		Sleep(100);
+		if (new_client != nullptr) {
+			new_client->socket_ = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+			IoContext * io_context = io_context_pool_->Construct(IoContext(new_client, IO_ACCEPT));
+			SOCKET client_socket = io_context->client_->socket_;
+
+			auto result = CreateIoCompletionPort((HANDLE)client_socket, completion_port_, (ULONG_PTR)client_socket, 0);
+			_ASSERT(result == completion_port_);
+
+			AcceptEx(listen_socket_, client_socket, accept_buffer_, 0, sizeof(SOCKADDR_IN) + 16, sizeof(SOCKADDR_IN) + 16, &received_bytes, (LPOVERLAPPED)io_context);
+		}
+		Sleep(1);
 	}
 }
 VOID Server::SetPacketHeaderSize(USHORT size)
