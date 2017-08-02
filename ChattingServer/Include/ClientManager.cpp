@@ -2,7 +2,7 @@
 
 namespace core
 {
-ClientManager::ClientManager() : current_(0), limit_(10000000)
+ClientManager::ClientManager() : current_(0), limit_(10000)
 {
 }
 ClientManager::~ClientManager()
@@ -23,6 +23,7 @@ Client * ClientManager::NewClient()
 VOID ClientManager::DeleteClient(Client * client)
 {
 	client_pool_.Destroy(client);
+	--current_;
 }
 VOID ClientManager::AddClient(Client * client)
 {
