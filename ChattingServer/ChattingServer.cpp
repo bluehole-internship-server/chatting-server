@@ -269,7 +269,7 @@ int main()
 	server.Init();
 	server.AddWork([&]() {
 		while (true) {
-			std::this_thread::sleep_for(std::chrono::milliseconds(GAME_INTERVAL * 5));
+			std::this_thread::sleep_for(std::chrono::milliseconds(GAME_INTERVAL));
 			auto picked_command = std::max_element(game_commands.begin(), game_commands.end(),
 				[](std::pair<std::string, unsigned int> a, std::pair<std::string, unsigned int> b)->bool { return a.second < b.second; });
 			if(picked_command->second != 0)
