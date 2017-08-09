@@ -5,6 +5,8 @@ VisualStudioVersion = 15.0.26430.16
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ChattingServer", "ChattingServer.vcxproj", "{49FB46E9-E3CB-445F-AE16-3EB98C074F57}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "minimal_game_controller", "..\minimal_game_controller\minimal_game_controller.vcxproj", "{002C5BFB-2B80-4077-888E-D1627C738DBF}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -21,6 +23,14 @@ Global
 		{49FB46E9-E3CB-445F-AE16-3EB98C074F57}.Release|x64.Build.0 = Release|x64
 		{49FB46E9-E3CB-445F-AE16-3EB98C074F57}.Release|x86.ActiveCfg = Release|Win32
 		{49FB46E9-E3CB-445F-AE16-3EB98C074F57}.Release|x86.Build.0 = Release|Win32
+		{002C5BFB-2B80-4077-888E-D1627C738DBF}.Debug|x64.ActiveCfg = Debug|x64
+		{002C5BFB-2B80-4077-888E-D1627C738DBF}.Debug|x64.Build.0 = Debug|x64
+		{002C5BFB-2B80-4077-888E-D1627C738DBF}.Debug|x86.ActiveCfg = Debug|Win32
+		{002C5BFB-2B80-4077-888E-D1627C738DBF}.Debug|x86.Build.0 = Debug|Win32
+		{002C5BFB-2B80-4077-888E-D1627C738DBF}.Release|x64.ActiveCfg = Release|x64
+		{002C5BFB-2B80-4077-888E-D1627C738DBF}.Release|x64.Build.0 = Release|x64
+		{002C5BFB-2B80-4077-888E-D1627C738DBF}.Release|x86.ActiveCfg = Release|Win32
+		{002C5BFB-2B80-4077-888E-D1627C738DBF}.Release|x86.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
