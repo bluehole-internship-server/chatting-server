@@ -67,8 +67,13 @@ ChatReceivePacket * CreateChatReturnPacket(
 
 	return return_packet;
 }
+enum class Command : unsigned short
+{
+	NONE, UP, DOWN, LEFT, RIGHT
+};
 void SetGameCommands(std::unordered_map<std::string, unsigned int> &game_commands)
 {
+	game_commands.insert({ "¸ØÃç", 0 });
 	game_commands.insert({ "À§", 0 });
 	game_commands.insert({ "¾Æ·¡", 0 });
 	game_commands.insert({ "¿ŞÂÊ", 0 });
@@ -80,6 +85,7 @@ int main()
 	std::unordered_map<core::Client *, ChatClient *> chat_clients;
 	std::unordered_set<std::string> client_names;
 	std::unordered_map<std::string, unsigned int> game_commands;
+	std::unordered_map<std::string, const unsigned char> game_command_index = { {"¸ØÃç", 0}, {"À§", 1}, {"¾Æ·¡", 2}, {"¿ŞÂÊ", 3}, {"¿À¸¥ÂÊ", 4} };
 	core::Server server;
 	core::Spinlock lock, command_lock;
 
