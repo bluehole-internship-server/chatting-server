@@ -81,6 +81,13 @@ void SetGameCommands(std::unordered_map<std::string, unsigned int> &game_command
 }
 int main()
 {
+	core::Server server_for_game_server;
+	core::Client * game_server = nullptr;
+	server_for_game_server.SetListenPort(55151);
+	server_for_game_server.SetPostAcceptHandler([&](core::IoContext * io_context) {
+		game_server = game_server == nullptr ? io_context->client_ : game_server;
+	});
+	
 	std::unordered_map<unsigned int, ReturnPacketCounter *> return_packet_counters;
 	std::unordered_map<core::Client *, ChatClient *> chat_clients;
 	std::unordered_set<std::string> client_names;
@@ -272,6 +279,11 @@ int main()
 				command.second = 0;
 			}
 			// To Do: Send Picked Command to Logic Server 
+			if (game_server) {
+				char * sended_command = new char[1];
+				memcpy(sended_command, &(game_command_index[picked_command->first]), sizeof(char));
+				game_server->Send((char *)sended_command, 1);
+			}
 		}
 	});
 	server.Run();
