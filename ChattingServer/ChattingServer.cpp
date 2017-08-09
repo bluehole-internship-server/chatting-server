@@ -83,11 +83,17 @@ int main()
 {
 	core::Server server_for_game_server;
 	core::Client * game_server = nullptr;
-	server_for_game_server.SetListenPort(55151);
-	server_for_game_server.SetPostAcceptHandler([&](core::IoContext * io_context) {
-		game_server = game_server == nullptr ? io_context->client_ : game_server;
+	std::thread game_server_thread([&]() {
+		server_for_game_server.SetListenPort(55151);
+		server_for_game_server.SetPostAcceptHandler([&](core::IoContext * io_context) {
+			puts("게임 서버 연결됨.");
+			game_server = game_server == nullptr ? io_context->client_ : game_server;
+		});
+		server_for_game_server.Init();
+		puts("게임 서버 시작.");
+		server_for_game_server.Run();
 	});
-	
+		
 	std::unordered_map<unsigned int, ReturnPacketCounter *> return_packet_counters;
 	std::unordered_map<core::Client *, ChatClient *> chat_clients;
 	std::unordered_set<std::string> client_names;
@@ -265,6 +271,7 @@ int main()
 			}
 			break;
 		}
+		delete buffer;
 	});
 	server.Init();
 	server.AddWork([&]() {
@@ -283,9 +290,11 @@ int main()
 				char * sended_command = new char[1];
 				memcpy(sended_command, &(game_command_index[picked_command->first]), sizeof(char));
 				game_server->Send((char *)sended_command, 1);
+				puts("명령어 전송 완료.");
 			}
 		}
 	});
+	puts("채팅 서버 시작.");
 	server.Run();
 	return 0;
 }
