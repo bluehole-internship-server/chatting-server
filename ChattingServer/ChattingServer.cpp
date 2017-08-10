@@ -1,84 +1,9 @@
-#include <Server.h>
-#include "Packet.h"
-#include "ChatClient.h"
-#include <unordered_map>
-#include <unordered_set>
-#include <vector>
-#include <chrono>
-#include <algorithm>
+#include "ChattingServer.h"
 
 #define GAME_INTERVAL 1000
 
-struct ReturnPacketCounter
-{
-	ChatReceivePacket * return_packet_;
-	unsigned int target_;
-};
-LoginAnswerPacket * CreateLoginAnswerPacket(unsigned int packet_size)
-{
-	bool result = true;
-	LoginAnswerPacket * login_answer_packet = new LoginAnswerPacket();
-	login_answer_packet->answer_ = FAIL_UNKNOWN;
-	login_answer_packet->header_.size_ = sizeof(USHORT);
-	login_answer_packet->header_.type_ = LOGIN_ANS;
-	
-	if (packet_size > NICKNAME_MAX_LENGTH) {
-		login_answer_packet->answer_ = FAIL_TOO_LONG;
-		result = false;
-	}
-	else if (packet_size < NICKNAME_MIN_LENGTH) {
-		login_answer_packet->answer_ = FAIL_TOO_SHORT;
-		result = false;
-	}
+core::Spinlock lock, command_lock;
 
-	if (result == false) {
-		delete login_answer_packet;
-		return nullptr;
-	}
-	else {
-		return login_answer_packet;
-	}
-}
-bool FindDuplicateNickname(
-	std::unordered_set<std::string> &client_names,
-	char * requested_name)
-{
-	std::string requested(requested_name);
-	return client_names.find(requested) != client_names.end();
-}
-ChatReceivePacket * CreateChatReturnPacket(
-	unsigned short send_message_length, 
-	char * nickname, 
-	unsigned int nickname_length, 
-	char * message, 
-	unsigned int message_length)
-{
-	ChatReceivePacket * return_packet = new ChatReceivePacket();
-	return_packet->header_.size_ = send_message_length;
-	return_packet->header_.type_ = CHAT_RECV;
-
-	char * return_data = return_packet->data_;
-	
-	memcpy(return_data, nickname, nickname_length);
-	memcpy(return_data + nickname_length, message, message_length);
-
-	return_packet->type_ = NORMAL;
-	return_packet->nickname_length_ = nickname_length;
-
-	return return_packet;
-}
-enum class Command : unsigned short
-{
-	NONE, UP, DOWN, LEFT, RIGHT
-};
-void SetGameCommands(std::unordered_map<std::string, unsigned int> &game_commands)
-{
-	game_commands.insert({ "멈춰", 0 });
-	game_commands.insert({ "위", 0 });
-	game_commands.insert({ "아래", 0 });
-	game_commands.insert({ "왼쪽", 0 });
-	game_commands.insert({ "오른쪽", 0 });
-}
 int main()
 {
 	core::Server server_for_game_server;
@@ -94,18 +19,12 @@ int main()
 		server_for_game_server.Run();
 	});
 		
-	std::unordered_map<unsigned int, ReturnPacketCounter *> return_packet_counters;
-	std::unordered_map<core::Client *, ChatClient *> chat_clients;
-	std::unordered_set<std::string> client_names;
-	std::unordered_map<std::string, unsigned int> game_commands;
-	std::unordered_map<std::string, const unsigned char> game_command_index = { {"멈춰", 0}, {"위", 1}, {"아래", 2}, {"왼쪽", 3}, {"오른쪽", 4} };
 	core::Server server;
-	core::Spinlock lock, command_lock;
 
 	SetGameCommands(game_commands);
 
 	server.SetListenPort(55150);
-	server.SetPostDisconnectHandler([&server, &chat_clients](core::IoContext * io_context) {
+	server.SetPostDisconnectHandler([&server](core::IoContext * io_context) {
 		auto target = chat_clients.find(io_context->client_);
 		if (target == chat_clients.end()) {
 			// Do Something.
@@ -156,6 +75,7 @@ int main()
 		}
 		break;
 		case CHAT_SEND:
+			// Read LockGuard로 변경할 것
 			lock.Lock();
 			auto target = chat_clients.find(reciever);
 			lock.Unlock();
@@ -172,81 +92,7 @@ int main()
 					auto msg = chat_send_packet->message_;
 					bool is_command_able = (msg[0] == '/' || msg[0] == '!');
 					if (is_command_able) {
-						char command_type = msg[0];
-						char * command_body = nullptr;
-						unsigned short command_length = 0;
-						switch (command_type) {
-						case '/':
-							if (packet_size >= 4) {
-								char command = msg[1];
-								printf("받은 채팅 명령어 %c\n", command);
-								command_body = msg + 3;
-								command_length = packet_size - 3;
-								switch (command) {
-								case 'w':
-									// Whisper
-									ChatClient * sender = chat_client;
-									int delimeter_offset = 0;
-									for (int i = 0; i < command_length; ++i) {
-										if (command_body[i] == ' ') {
-											delimeter_offset = i;
-										}
-									}
-									if (delimeter_offset == 0) {
-										// Do Something.
-									}
-									else {
-										// Make ChatReceivePacket for Whisper
-										unsigned short send_message_length = sizeof(ChatReceivePacket::type_) + sizeof(ChatReceivePacket::nickname_length_) + chat_client_nickname_length + command_length - delimeter_offset - 1;
-										if (send_message_length > MESSAGE_MAX_LENGTH) {
-											// Do Something.
-										}
-										else {
-											ChatReceivePacket * chat_receive_packet = new ChatReceivePacket();
-											chat_receive_packet->header_.size_ = send_message_length;
-											chat_receive_packet->header_.type_ = CHAT_RECV;
-											chat_receive_packet->type_ = WHISPER;
-											chat_receive_packet->nickname_length_ = chat_client_nickname_length;
-											core::SpinlockGuard lockguard(lock);
-											for (auto client : chat_clients) {
-												auto nickname_length = strlen(client.second->GetNickname());
-												if (nickname_length == delimeter_offset && memcmp(client.second->GetNickname(), command_body, delimeter_offset) == 0) {
-													memcpy(chat_receive_packet->data_, sender->GetNickname(), delimeter_offset);
-													memcpy(chat_receive_packet->data_ + delimeter_offset, command_body + delimeter_offset + 1, command_length - delimeter_offset - 1);
-													chat_receive_packet->data_[send_message_length] = 0;
-													printf("%s --> %s: %s\n", sender->GetNickname(), client.second->GetNickname(), chat_receive_packet->data_ + delimeter_offset);
-													client.second->client_->Send((char *)chat_receive_packet, sizeof(PacketHeader) + send_message_length);
-													break;
-												}
-											}
-										}
-									}
-									break;
-								}
-							}
-							break;
-						case '!':
-						{
-							command_body = msg + 1;
-							command_length = packet_size - 1;
-							printf("받은 게임 명령어 ");
-							command_body[command_length] = 0;
-							printf("%s\n", command_body);
-							std::string command(command_body);
-							{
-								core::SpinlockGuard lockguard(command_lock);
-								auto finder = game_commands.find(command);
-								if (finder != game_commands.end())
-									++(finder->second);
-								else
-									printf("알 수 없는 게임 명령어: %s\n", command.c_str());
-							}
-						}
-						break;
-						default:
-							break;
-						}
-
+						ProcessCommand(msg, chat_client, packet_size, chat_client_nickname_length);
 					}
 
 					unsigned short send_message_length = sizeof(ChatReceivePacket::type_) + sizeof(ChatReceivePacket::nickname_length_) + chat_client_nickname_length + packet_size;
@@ -266,7 +112,6 @@ int main()
 						}
 						delete return_packet;
 					}
-
 				}
 			}
 			break;
@@ -297,4 +142,143 @@ int main()
 	puts("채팅 서버 시작.");
 	server.Run();
 	return 0;
+}
+
+LoginAnswerPacket * CreateLoginAnswerPacket(unsigned int packet_size)
+{
+	bool result = true;
+	LoginAnswerPacket * login_answer_packet = new LoginAnswerPacket();
+	login_answer_packet->answer_ = FAIL_UNKNOWN;
+	login_answer_packet->header_.size_ = sizeof(USHORT);
+	login_answer_packet->header_.type_ = LOGIN_ANS;
+
+	if (packet_size > NICKNAME_MAX_LENGTH) {
+		login_answer_packet->answer_ = FAIL_TOO_LONG;
+		result = false;
+	}
+	else if (packet_size < NICKNAME_MIN_LENGTH) {
+		login_answer_packet->answer_ = FAIL_TOO_SHORT;
+		result = false;
+	}
+
+	if (result == false) {
+		delete login_answer_packet;
+		return nullptr;
+	}
+	else {
+		return login_answer_packet;
+	}
+}
+bool FindDuplicateNickname(
+	std::unordered_set<std::string> &client_names,
+	char * requested_name)
+{
+	std::string requested(requested_name);
+	return client_names.find(requested) != client_names.end();
+}
+ChatReceivePacket * CreateChatReturnPacket(
+	unsigned short send_message_length,
+	char * nickname,
+	unsigned int nickname_length,
+	char * message,
+	unsigned int message_length)
+{
+	ChatReceivePacket * return_packet = new ChatReceivePacket();
+	return_packet->header_.size_ = send_message_length;
+	return_packet->header_.type_ = CHAT_RECV;
+
+	char * return_data = return_packet->data_;
+
+	memcpy(return_data, nickname, nickname_length);
+	memcpy(return_data + nickname_length, message, message_length);
+
+	return_packet->type_ = NORMAL;
+	return_packet->nickname_length_ = nickname_length;
+
+	return return_packet;
+}
+void SetGameCommands(std::unordered_map<std::string, unsigned int> &game_commands)
+{
+	game_commands.insert({ "멈춰", 0 });
+	game_commands.insert({ "위", 0 });
+	game_commands.insert({ "아래", 0 });
+	game_commands.insert({ "왼쪽", 0 });
+	game_commands.insert({ "오른쪽", 0 });
+}
+void ProcessCommand(char * msg, ChatClient * chat_client, unsigned short packet_size, unsigned short chat_client_nickname_length)
+{
+	char command_type = msg[0];
+	char * command_body = nullptr;
+	unsigned short command_length = 0;
+	switch (command_type) {
+	case '/':
+		if (packet_size >= 4) {
+			char command = msg[1];
+			printf("받은 채팅 명령어 %c\n", command);
+			command_body = msg + 3;
+			command_length = packet_size - 3;
+			switch (command) {
+			case 'w':
+				// Whisper
+				ChatClient * sender = chat_client;
+				int delimeter_offset = 0;
+				for (int i = 0; i < command_length; ++i) {
+					if (command_body[i] == ' ') {
+						delimeter_offset = i;
+					}
+				}
+				if (delimeter_offset == 0) {
+					// Do Something.
+				}
+				else {
+					// Make ChatReceivePacket for Whisper
+					unsigned short send_message_length = sizeof(ChatReceivePacket::type_) + sizeof(ChatReceivePacket::nickname_length_) + chat_client_nickname_length + command_length - delimeter_offset - 1;
+					if (send_message_length > MESSAGE_MAX_LENGTH) {
+						// Do Something.
+					}
+					else {
+						ChatReceivePacket * chat_receive_packet = new ChatReceivePacket();
+						chat_receive_packet->header_.size_ = send_message_length;
+						chat_receive_packet->header_.type_ = CHAT_RECV;
+						chat_receive_packet->type_ = WHISPER;
+						chat_receive_packet->nickname_length_ = chat_client_nickname_length;
+						core::SpinlockGuard lockguard(lock);
+						for (auto client : chat_clients) {
+							auto nickname_length = strlen(client.second->GetNickname());
+							if (nickname_length == delimeter_offset && memcmp(client.second->GetNickname(), command_body, delimeter_offset) == 0) {
+								memcpy(chat_receive_packet->data_, sender->GetNickname(), delimeter_offset);
+								memcpy(chat_receive_packet->data_ + delimeter_offset, command_body + delimeter_offset + 1, command_length - delimeter_offset - 1);
+								chat_receive_packet->data_[send_message_length] = 0;
+								printf("%s --> %s: %s\n", sender->GetNickname(), client.second->GetNickname(), chat_receive_packet->data_ + delimeter_offset);
+								client.second->client_->Send((char *)chat_receive_packet, sizeof(PacketHeader) + send_message_length);
+								break;
+							}
+						}
+					}
+				}
+				break;
+			}
+		}
+		break;
+	case '!':
+	{
+		command_body = msg + 1;
+		command_length = packet_size - 1;
+		printf("받은 게임 명령어 ");
+		command_body[command_length] = 0;
+		printf("%s\n", command_body);
+		std::string command(command_body);
+		{
+			core::SpinlockGuard lockguard(command_lock);
+			auto finder = game_commands.find(command);
+			if (finder != game_commands.end())
+				++(finder->second);
+			else
+				printf("알 수 없는 게임 명령어: %s\n", command.c_str());
+		}
+	}
+	break;
+	default:
+		break;
+	}
 }
