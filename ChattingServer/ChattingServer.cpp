@@ -242,31 +242,31 @@ int main()
 									printf("알 수 없는 게임 명령어: %s\n", command.c_str());
 							}
 						}
-							break;
+						break;
 						default:
 							break;
 						}
 
 					}
-					else {
-						unsigned short send_message_length = sizeof(ChatReceivePacket::type_) + sizeof(ChatReceivePacket::nickname_length_) + chat_client_nickname_length + packet_size;
-						if (send_message_length > MESSAGE_MAX_LENGTH) {
-							// Do Something.
-						}
-						else 
-						{
-							printf("%s: ", chat_client->GetNickname());
-							for (unsigned int i = 0; i < packet_size; ++i)
-								putc(chat_send_packet->message_[i], stdout);
-							putc('\n', stdout);
-							ChatReceivePacket * return_packet = CreateChatReturnPacket(send_message_length, chat_client->GetNickname(), chat_client_nickname_length, chat_send_packet->message_, packet_size);
-							core::SpinlockGuard lockguard(lock);
-							for (auto client : chat_clients) {
-								client.second->client_->Send((char *)return_packet, sizeof(PacketHeader) + send_message_length);
-							}
-							delete return_packet;
-						}
+
+					unsigned short send_message_length = sizeof(ChatReceivePacket::type_) + sizeof(ChatReceivePacket::nickname_length_) + chat_client_nickname_length + packet_size;
+					if (send_message_length > MESSAGE_MAX_LENGTH) {
+						// Do Something.
 					}
+					else
+					{
+						printf("%s: ", chat_client->GetNickname());
+						for (unsigned int i = 0; i < packet_size; ++i)
+							putc(chat_send_packet->message_[i], stdout);
+						putc('\n', stdout);
+						ChatReceivePacket * return_packet = CreateChatReturnPacket(send_message_length, chat_client->GetNickname(), chat_client_nickname_length, chat_send_packet->message_, packet_size);
+						core::SpinlockGuard lockguard(lock);
+						for (auto client : chat_clients) {
+							client.second->client_->Send((char *)return_packet, sizeof(PacketHeader) + send_message_length);
+						}
+						delete return_packet;
+					}
+
 				}
 			}
 			break;
