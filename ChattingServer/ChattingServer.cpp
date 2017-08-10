@@ -91,26 +91,15 @@ int main()
 				if (packet_size != 0) {
 					auto msg = chat_send_packet->message_;
 					bool is_command_able = (msg[0] == '/' || msg[0] == '!');
-					if (is_command_able) {
+					if (is_command_able)
 						ProcessCommand(msg, chat_client, packet_size, chat_client_nickname_length);
-					}
 
 					unsigned short send_message_length = sizeof(ChatReceivePacket::type_) + sizeof(ChatReceivePacket::nickname_length_) + chat_client_nickname_length + packet_size;
 					if (send_message_length > MESSAGE_MAX_LENGTH) {
 						// Do Something.
 					}
-					else
-					{
-						printf("%s: ", chat_client->GetNickname());
-						for (unsigned int i = 0; i < packet_size; ++i)
-							putc(chat_send_packet->message_[i], stdout);
-						putc('\n', stdout);
-						ChatReceivePacket * return_packet = CreateChatReturnPacket(send_message_length, chat_client->GetNickname(), chat_client_nickname_length, chat_send_packet->message_, packet_size);
-						core::SpinlockGuard lockguard(lock);
-						for (auto client : chat_clients) {
-							client.second->client_->Send((char *)return_packet, sizeof(PacketHeader) + send_message_length);
-						}
-						delete return_packet;
+					else {
+						ReturnBroadcast(chat_client, chat_client_nickname_length, chat_send_packet, send_message_length, packet_size);
 					}
 				}
 			}
@@ -281,4 +270,18 @@ void ProcessCommand(char * msg, ChatClient * chat_client, unsigned short packet_
 	default:
 		break;
 	}
+}
+
+void ReturnBroadcast(ChatClient * chat_client, unsigned short chat_client_nickname_length, ChatSendPacket * chat_send_packet, unsigned short send_message_length, unsigned short packet_size)
+{
+	printf("%s: ", chat_client->GetNickname());
+	for (unsigned int i = 0; i < packet_size; ++i)
+		putc(chat_send_packet->message_[i], stdout);
+	putc('\n', stdout);
+	ChatReceivePacket * return_packet = CreateChatReturnPacket(send_message_length, chat_client->GetNickname(), chat_client_nickname_length, chat_send_packet->message_, packet_size);
+	core::SpinlockGuard lockguard(lock);
+	for (auto client : chat_clients) {
+		client.second->client_->Send((char *)return_packet, sizeof(PacketHeader) + send_message_length);
+	}
+	delete return_packet;
 }

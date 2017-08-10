@@ -38,3 +38,4 @@ ChatReceivePacket * CreateChatReturnPacket(
 	unsigned int message_length);
 void SetGameCommands(std::unordered_map<std::string, unsigned int> &game_commands);
 void ProcessCommand(char * msg, ChatClient * chat_client, unsigned short packet_size, unsigned short chat_client_nickname_length);
+void ReturnBroadcast(ChatClient * chat_client, unsigned short chat_client_nickname_length, ChatSendPacket * chat_send_packet, unsigned short send_message_length, unsigned short packet_size);
