@@ -91,21 +91,22 @@ int main()
 				if (packet_size != 0) {
 					auto msg = chat_send_packet->message_;
 					bool is_command_able = (msg[0] == '/' || msg[0] == '!');
+					ChatType chat_type = NORMAL;
 					if (is_command_able)
-						ProcessCommand(msg, chat_client, packet_size, chat_client_nickname_length);
+						chat_type = ProcessCommand(msg, chat_client, packet_size, chat_client_nickname_length);
 
 					unsigned short send_message_length = sizeof(ChatReceivePacket::type_) + sizeof(ChatReceivePacket::nickname_length_) + chat_client_nickname_length + packet_size;
 					if (send_message_length > MESSAGE_MAX_LENGTH) {
 						// Do Something.
 					}
 					else {
-						ReturnBroadcast(chat_client, chat_client_nickname_length, chat_send_packet, send_message_length, packet_size);
+						ReturnBroadcast(chat_client, chat_client_nickname_length, chat_send_packet, send_message_length, chat_type, packet_size);
 					}
 				}
 			}
 			break;
 		}
-		delete buffer;
+		delete [] buffer;
 	});
 	server.Init();
 	server.AddWork([&]() {
@@ -194,7 +195,7 @@ void SetGameCommands(std::unordered_map<std::string, unsigned int> &game_command
 	game_commands.insert({ "왼쪽", 0 });
 	game_commands.insert({ "오른쪽", 0 });
 }
-void ProcessCommand(char * msg, ChatClient * chat_client, unsigned short packet_size, unsigned short chat_client_nickname_length)
+ChatType ProcessCommand(char * msg, ChatClient * chat_client, unsigned short packet_size, unsigned short chat_client_nickname_length)
 {
 	char command_type = msg[0];
 	char * command_body = nullptr;
@@ -243,6 +244,7 @@ void ProcessCommand(char * msg, ChatClient * chat_client, unsigned short packet_
 								break;
 							}
 						}
+						return ChatType::WHISPER;
 					}
 				}
 				break;
@@ -260,10 +262,14 @@ void ProcessCommand(char * msg, ChatClient * chat_client, unsigned short packet_
 		{
 			core::SpinlockGuard lockguard(command_lock);
 			auto finder = game_commands.find(command);
-			if (finder != game_commands.end())
+			if (finder != game_commands.end()) {
 				++(finder->second);
-			else
+				return ChatType::COMMAND;
+			}
+			else {
 				printf("알 수 없는 게임 명령어: %s\n", command.c_str());
+				return ChatType::NORMAL;
+			}
 		}
 	}
 	break;
@@ -272,13 +278,15 @@ void ProcessCommand(char * msg, ChatClient * chat_client, unsigned short packet_
 	}
 }
 
-void ReturnBroadcast(ChatClient * chat_client, unsigned short chat_client_nickname_length, ChatSendPacket * chat_send_packet, unsigned short send_message_length, unsigned short packet_size)
+void ReturnBroadcast(ChatClient * chat_client, unsigned short chat_client_nickname_length, ChatSendPacket * chat_send_packet, unsigned short send_message_length, ChatType chat_type, unsigned short packet_size)
 {
 	printf("%s: ", chat_client->GetNickname());
 	for (unsigned int i = 0; i < packet_size; ++i)
 		putc(chat_send_packet->message_[i], stdout);
 	putc('\n', stdout);
 	ChatReceivePacket * return_packet = CreateChatReturnPacket(send_message_length, chat_client->GetNickname(), chat_client_nickname_length, chat_send_packet->message_, packet_size);
+	return_packet->type_ = chat_type;
+
 	core::SpinlockGuard lockguard(lock);
 	for (auto client : chat_clients) {
 		client.second->client_->Send((char *)return_packet, sizeof(PacketHeader) + send_message_length);

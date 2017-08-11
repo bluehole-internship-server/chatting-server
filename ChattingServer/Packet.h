@@ -50,7 +50,8 @@ enum ChatType : unsigned short
 {
 	NORMAL,
 	NOTICE,
-	WHISPER
+	WHISPER,
+	COMMAND,
 };
 
 struct ChatReceivePacket
