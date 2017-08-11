@@ -95,12 +95,14 @@ int main()
 					if (is_command_able)
 						chat_type = ProcessCommand(msg, chat_client, packet_size, chat_client_nickname_length);
 
-					unsigned short send_message_length = sizeof(ChatReceivePacket::type_) + sizeof(ChatReceivePacket::nickname_length_) + chat_client_nickname_length + packet_size;
-					if (send_message_length > MESSAGE_MAX_LENGTH) {
-						// Do Something.
-					}
-					else {
-						ReturnBroadcast(chat_client, chat_client_nickname_length, chat_send_packet, send_message_length, chat_type, packet_size);
+					if (chat_type != WHISPER) {
+						unsigned short send_message_length = sizeof(ChatReceivePacket::type_) + sizeof(ChatReceivePacket::nickname_length_) + chat_client_nickname_length + packet_size;
+						if (send_message_length > MESSAGE_MAX_LENGTH) {
+							// Do Something.
+						}
+						else {
+							ReturnBroadcast(chat_client, chat_client_nickname_length, chat_send_packet, send_message_length, chat_type, packet_size);
+						}
 					}
 				}
 			}
