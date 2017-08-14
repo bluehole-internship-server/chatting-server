@@ -4,6 +4,11 @@
 
 #pragma once
 
+#include <unordered_map>
+#include <unordered_set>
+
+#include "Spinlock.h"
+
 #include "pool.hpp"
 #include "null_mutex.hpp"
 
@@ -13,7 +18,8 @@ template<typename T,
     unsigned RequestedSize = sizeof(T)>
 class ObjectPool : public Pool {
 public:
-    explicit ObjectPool() : Pool(RequestedSize) { }
+                                // 2bytes for HACK
+    explicit ObjectPool() : Pool(RequestedSize + 2) { }
     ~ObjectPool()
     {
         if (object_pool_ == nullptr) return;
@@ -49,8 +55,7 @@ public:
 
     inline T* Construct(T&& t)
     {
-        T* ret =
-            static_cast<T*>(object_pool()->Malloc());
+        T* ret = static_cast<T*>(object_pool()->Malloc());
 
         try {
             new (ret) T(std::move(t));
@@ -75,13 +80,19 @@ public:
     }
 
 private:
+    static const int max_thread_num = 64;
+
     inline ObjectPool<T, RequestedSize>* object_pool()
     {
+        static long thread_id_counter = 0;
+
         if (object_pool_ == nullptr) {
             ref_count_++;
             object_pool_ = reinterpret_cast<ObjectPool<T, RequestedSize>*>
                 (_aligned_malloc(sizeof(ObjectPool<T, RequestedSize>), 64));
             new (object_pool_)ObjectPool<T, RequestedSize>();
+            thread_id_ = InterlockedAdd(&thread_id_counter, 1);
+            object_pool_array_[thread_id_] = object_pool_;
         }
 
         return object_pool_;
@@ -93,20 +104,40 @@ private:
     static __declspec(thread) __declspec(align(64))
         int ref_count_;
 
+    static __declspec(thread) __declspec(align(64))
+        short thread_id_;
+
+
     inline void* malloc()
     {
-        return Pool::Malloc();
+        char* ret = (char*)Pool::Malloc();
+        *(short*)(ret + RequestedSize) = thread_id_;
+        return ret;
     }
 
     inline void free(void* const chunk)
     {
-        Pool::Free(chunk);
+        short thread_id = *(short*)((char*)chunk + RequestedSize);
+        if (thread_id == thread_id_) {
+            Pool::Free(chunk);
+        }
+        else {
+            object_pool_array_[thread_id]->free_append(chunk);
+        }
+    }
+
+    inline void free_append(void* const chunk)
+    {
+        Pool::FreeAppend(chunk);
     }
 
     inline bool purge_memory()
     {
         return Pool::PurgeMemory();
     }
+
+    static ObjectPool<T, RequestedSize>* object_pool_array_[max_thread_num + 1];
+
 };
 
 template<typename T, unsigned RequestedSize>
@@ -114,6 +145,14 @@ typename ObjectPool<T, RequestedSize>*
 ObjectPool<T, RequestedSize>::object_pool_ = nullptr;;
 
 template<typename T, unsigned RequestedSize>
-typename int ObjectPool<T, RequestedSize>::ref_count_ = 0;
+int ObjectPool<T, RequestedSize>::ref_count_ = 0;
+
+template<typename T, unsigned RequestedSize>
+typename ObjectPool<T, RequestedSize>*
+    ObjectPool<T, RequestedSize>::object_pool_array_[ObjectPool<T,
+    RequestedSize>::max_thread_num + 1];
+
+template<typename T, unsigned RequestedSize>
+short ObjectPool<T, RequestedSize>::thread_id_;
 
 }

@@ -74,7 +74,9 @@ VOID Server::Init()
 	}
 	
 	// Create New IoContext Pool
-	io_context_pool_ = new core::ObjectPool<core::IoContext>;
+	if(io_context_pool_ == nullptr){
+		io_context_pool_ = new core::ObjectPool<core::IoContext>;
+	}
 }
 VOID Server::SetListenPort(USHORT port)
 {

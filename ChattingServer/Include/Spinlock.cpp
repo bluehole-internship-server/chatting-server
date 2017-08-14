@@ -45,14 +45,24 @@ void Spinlock::ReadUnlock()
 	--reader_;
 }
 
-SpinlockGuard::SpinlockGuard(Spinlock &spinlock) : spinlock_(spinlock)
+ExclusiveLockHolder::ExclusiveLockHolder(Spinlock & spinlock) : spinlock_(spinlock)
 {
 	spinlock_.Lock();
 }
 
-SpinlockGuard::~SpinlockGuard()
+ExclusiveLockHolder::~ExclusiveLockHolder()
 {
 	spinlock_.Unlock();
+}
+
+SharedLockHolder::SharedLockHolder(Spinlock & spinlock) : spinlock_(spinlock)
+{
+	spinlock_.ReadLock();
+}
+
+SharedLockHolder::~SharedLockHolder()
+{
+	spinlock_.ReadUnlock();
 }
 
 }

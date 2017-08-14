@@ -23,11 +23,21 @@ private:
 	std::atomic<long> reader_;
 };
 
-class SpinlockGuard
+class ExclusiveLockHolder
 {
 public:
-	SpinlockGuard(Spinlock &spinlock);
-	~SpinlockGuard();
+	ExclusiveLockHolder(Spinlock &spinlock);
+	~ExclusiveLockHolder();
+
+private:
+	Spinlock &spinlock_;
+};
+
+class SharedLockHolder
+{
+public:
+	SharedLockHolder(Spinlock &spinlock);
+	~SharedLockHolder();
 
 private:
 	Spinlock &spinlock_;

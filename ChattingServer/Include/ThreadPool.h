@@ -25,7 +25,7 @@ public:
 
 		std::future<return_type> res = task->get_future();
 		{
-			SpinlockGuard lockGuard(spinlock_);
+			ExclusiveLockHolder lock_holder(spinlock_);
 			if (stop)
 				throw std::runtime_error("enqueue on stopped ThreadPool");
 

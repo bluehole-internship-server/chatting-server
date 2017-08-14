@@ -49,13 +49,18 @@ public:
         }
         next_size_ = 32;
 
-        storage().first_ = nullptr;        
+        storage().head_ = nullptr;
         return true;
     }
 
     virtual inline void Free(void* const chunk)
     {
         storage().free(chunk);
+    }
+
+    virtual inline void FreeAppend(void* const chunk)
+    {
+        storage().free_append(chunk);
     }
 
     inline bool Empty()
