@@ -124,9 +124,9 @@ int main()
 			}
 			// To Do: Send Picked Command to Logic Server 
 			if (game_server) {
-				char * sended_command = new char[1];
-				memcpy(sended_command, &(game_command_index[picked_command->first]), sizeof(char));
-				game_server->Send((char *)sended_command, 1);
+				char sended_command = 0;
+				memcpy(&sended_command, &(game_command_index[picked_command->first]), sizeof(char));
+				game_server->Send(&sended_command, 1);
 				puts("명령어 전송 완료.");
 			}
 		}
