@@ -20,19 +20,18 @@ int main()
 		puts("게임 서버 시작.");
 		server_for_game_server.Run();
 	});
-		
-	core::Server server;
 
 	SetGameCommands(game_commands);
 
 	server.SetListenPort(55150);
-	server.SetPostDisconnectHandler([&server](core::IoContext * io_context) {
+	server.SetPostDisconnectHandler([&](core::IoContext * io_context) {
 		auto target = chat_clients.find(io_context->client_);
 		if (target == chat_clients.end()) {
 			// Do Something.
 		}
 		else {
 			printf("%s 나감.\n", target->second->GetNickname());
+			client_names.erase(target->second->GetNickname());
 			delete target->second;
 			chat_clients.erase(io_context->client_);
 		}
@@ -82,9 +81,11 @@ int main()
 		break;
 		case CHAT_SEND:
 			// Read LockGuard로 변경할 것
-			lock.Lock();
-			auto target = chat_clients.find(reciever);
-			lock.Unlock();
+			auto target = chat_clients.begin();
+			{
+				core::SharedLockHolder lock_holder(lock);
+				target = chat_clients.find(reciever);
+			}
 			if (target == chat_clients.end()) {
 				// Do Something.
 			}
@@ -124,7 +125,7 @@ int main()
 				[](std::pair<std::string, unsigned int> a, std::pair<std::string, unsigned int> b)->bool { return a.second < b.second; });
 			if(picked_command->second != 0)
 				printf("선택된 게임 명령어: %s\n", picked_command->first.c_str());
-			core::SpinlockGuard  lockguard(command_lock);
+			core::ExclusiveLockHolder lock_holder(command_lock);
 			for (auto &command : game_commands) {
 				command.second = 0;
 			}
@@ -240,7 +241,7 @@ ChatType ProcessCommand(char * msg, ChatClient * chat_client, unsigned short pac
 						chat_receive_packet->header_.type_ = CHAT_RECV;
 						chat_receive_packet->type_ = WHISPER;
 						chat_receive_packet->nickname_length_ = chat_client_nickname_length;
-						core::SpinlockGuard lockguard(lock);
+						core::ExclusiveLockHolder lock_holder (lock);
 						for (auto client : chat_clients) {
 							auto nickname_length = strlen(client.second->GetNickname());
 							if (nickname_length == delimeter_offset && memcmp(client.second->GetNickname(), command_body, delimeter_offset) == 0) {
@@ -269,7 +270,7 @@ ChatType ProcessCommand(char * msg, ChatClient * chat_client, unsigned short pac
 		printf("%s\n", command_body);
 		std::string command(command_body);
 		{
-			core::SpinlockGuard lockguard(command_lock);
+			core::SharedLockHolder lock_holder(command_lock);
 			auto finder = game_commands.find(command);
 			if (finder != game_commands.end()) {
 				++(finder->second);
@@ -289,14 +290,14 @@ ChatType ProcessCommand(char * msg, ChatClient * chat_client, unsigned short pac
 
 void ReturnBroadcast(ChatClient * chat_client, unsigned short chat_client_nickname_length, ChatSendPacket * chat_send_packet, unsigned short send_message_length, ChatType chat_type, unsigned short packet_size)
 {
-	printf("%s: ", chat_client->GetNickname());
+	/*printf("%s: ", chat_client->GetNickname());
 	for (unsigned int i = 0; i < packet_size; ++i)
 		putc(chat_send_packet->message_[i], stdout);
-	putc('\n', stdout);
+	putc('\n', stdout);*/
 	ChatReceivePacket * return_packet = CreateChatReturnPacket(send_message_length, chat_client->GetNickname(), chat_client_nickname_length, chat_send_packet->message_, packet_size);
 	return_packet->type_ = chat_type;
 
-	core::SpinlockGuard lockguard(lock);
+	core::SharedLockHolder lock_holder(lock);
 	for (auto client : chat_clients) {
 		client.second->client_->Send((char *)return_packet, sizeof(PacketHeader) + send_message_length);
 	}
