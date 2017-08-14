@@ -3,11 +3,13 @@
 #define GAME_INTERVAL 1000
 
 core::Spinlock lock, command_lock;
+core::Server server_for_game_server;
+core::Server server;
+core::Client * game_server = nullptr;
 
 int main()
 {
-	core::Server server_for_game_server;
-	core::Client * game_server = nullptr;
+	
 	std::thread game_server_thread([&]() {
 		server_for_game_server.SetListenPort(55151);
 		server_for_game_server.SetPostAcceptHandler([&](core::IoContext * io_context) {
@@ -41,7 +43,7 @@ int main()
 		// Get Recieved Data
 		reciever->recv_buffer_.SetHead(0);
 		auto recieved = io_context->received_;
-		char * buffer = new char[recieved];
+		char * buffer = new char[recieved + 1];
 		memcpy(buffer, reciever->recv_buffer_.Read(), recieved);
 
 		// Parse the Packet
@@ -58,8 +60,10 @@ int main()
 				char * requested_name = new char[packet_size + 1];
 				memcpy(requested_name, login_request_packet->user_name_, packet_size);
 				requested_name[packet_size] = 0;
-				core::SpinlockGuard lockguard(lock);
+
+				core::SharedLockHolder lock_holder(lock);
 				bool is_duplicated = FindDuplicateNickname(client_names, requested_name);
+
 				login_answer_packet->answer_ = is_duplicated ? FAIL_DUPLICATE : SUCCESS;
 				if (login_answer_packet->answer_ == SUCCESS) {
 					ChatClient * chat_client = new ChatClient();
@@ -70,8 +74,10 @@ int main()
 					client_names.insert(std::string(requested_name));
 					printf("%s Á¢¼Ó.\n", chat_client->GetNickname());
 				}
+				delete[] requested_name;
 			}
 			reciever->Send((char *)login_answer_packet, sizeof(LoginAnswerPacket));
+			delete login_answer_packet;
 		}
 		break;
 		case CHAT_SEND:
@@ -108,7 +114,7 @@ int main()
 			}
 			break;
 		}
-		delete [] buffer;
+		delete[] buffer;
 	});
 	server.Init();
 	server.AddWork([&]() {
@@ -246,6 +252,7 @@ ChatType ProcessCommand(char * msg, ChatClient * chat_client, unsigned short pac
 								break;
 							}
 						}
+						delete chat_receive_packet;
 						return ChatType::WHISPER;
 					}
 				}
