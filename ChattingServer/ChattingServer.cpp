@@ -9,9 +9,10 @@ core::Client * game_server = nullptr;
 
 int main()
 {
-	
 	std::thread game_server_thread([&]() {
 		server_for_game_server.SetListenPort(55151);
+		server_for_game_server.SetWorkerAmount(1);
+		server_for_game_server.SetIocpWorkerAmount(1);
 		server_for_game_server.SetPostAcceptHandler([&](core::IoContext * io_context) {
 			puts("게임 서버 연결됨.");
 			game_server = game_server == nullptr ? io_context->client_ : game_server;
@@ -24,6 +25,8 @@ int main()
 	SetGameCommands(game_commands);
 
 	server.SetListenPort(55150);
+	server.SetWorkerAmount(32);
+	server.SetIocpWorkerAmount(30);
 	server.SetPostDisconnectHandler([&](core::IoContext * io_context) {
 		auto target = chat_clients.find(io_context->client_);
 		if (target == chat_clients.end()) {
@@ -60,11 +63,15 @@ int main()
 				memcpy(requested_name, login_request_packet->user_name_, packet_size);
 				requested_name[packet_size] = 0;
 
-				core::SharedLockHolder lock_holder(lock);
-				bool is_duplicated = FindDuplicateNickname(client_names, requested_name);
+				bool is_duplicated = true;
+				{
+					core::SharedLockHolder lock_holder(lock);
+					is_duplicated = FindDuplicateNickname(client_names, requested_name);
+				}
 
 				login_answer_packet->answer_ = is_duplicated ? FAIL_DUPLICATE : SUCCESS;
 				if (login_answer_packet->answer_ == SUCCESS) {
+					core::ExclusiveLockHolder lock_holder(lock);
 					ChatClient * chat_client = new ChatClient();
 					SecureZeroMemory(chat_client->GetNickname(), NICKNAME_MAX_LENGTH);
 					chat_client->client_ = reciever;
