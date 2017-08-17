@@ -17,7 +17,12 @@ BOOL Client::PrepareReceive()
 	DWORD recieved_bytes = 0;
 	DWORD flags = 0;
 
-	WSARecv(socket_, &recv_ready_context->buffer_, 1, &recieved_bytes, &flags, (LPWSAOVERLAPPED)recv_ready_context, NULL);
+	if (WSARecv(socket_, &recv_ready_context->buffer_, 1, &recieved_bytes, &flags, (LPWSAOVERLAPPED)recv_ready_context, NULL) == SOCKET_ERROR) {
+		if (WSAGetLastError() != WSA_IO_PENDING) {
+			printf("Prepare WSARecv %d\n", WSAGetLastError());
+			return FALSE;
+		}
+	}
 	return TRUE;
 }
 BOOL Client::Receive()
@@ -28,8 +33,12 @@ BOOL Client::Receive()
 	recv_context->buffer_.len = recv_buffer_.GetRemained();
 	recv_context->buffer_.buf = recv_buffer_.GetBuffer();
 
-	if (WSARecv(socket_, &recv_context->buffer_, 1, &recieved_bytes, &flags, (LPWSAOVERLAPPED)recv_context, NULL) == SOCKET_ERROR)
-		return FALSE;
+	if (WSARecv(socket_, &recv_context->buffer_, 1, &recieved_bytes, &flags, (LPWSAOVERLAPPED)recv_context, NULL) == SOCKET_ERROR) {
+		if (WSAGetLastError() != WSA_IO_PENDING) {
+			printf("WSARecv %d\n", WSAGetLastError());
+			return FALSE;
+		}		
+	}
 	return TRUE;
 }
 BOOL Client::PostReceive(DWORD received_bytes, std::function<void(IoContext *)>& handler, IoContext& io_context)
@@ -53,7 +62,12 @@ BOOL Client::Send(char * data, DWORD size)
 	send_context->buffer_.buf = send_buffer_.GetBuffer();
 	send_buffer_.Produce(size);
 		
-	WSASend(socket_, &(send_context->buffer_), 1, &sent, 0, (LPWSAOVERLAPPED)send_context, nullptr);
+	if (WSASend(socket_, &(send_context->buffer_), 1, &sent, 0, (LPWSAOVERLAPPED)send_context, nullptr) == SOCKET_ERROR) {
+		if (WSAGetLastError() != WSA_IO_PENDING) {
+			printf("WSASend %d\n", WSAGetLastError());
+			return FALSE;
+		}
+	}
 	return TRUE;
 }
 BOOL Client::PostSend(DWORD sent_bytes)

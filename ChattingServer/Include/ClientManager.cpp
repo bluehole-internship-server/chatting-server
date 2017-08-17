@@ -27,12 +27,12 @@ VOID ClientManager::DeleteClient(Client * client)
 }
 VOID ClientManager::AddClient(Client * client)
 {
-	SpinlockGuard lock(lock_);
+	ExclusiveLockHolder lock_holder(lock_);
 	clients_.push_back(client);
 }
 VOID ClientManager::RemoveClient(Client * client)
 {
-	SpinlockGuard lock(lock_);
+	ExclusiveLockHolder lock_holder(lock_);
 	auto it = std::find(clients_.begin(), clients_.end(), client);
 	if (it != clients_.end()) {
 		DeleteClient(*it);

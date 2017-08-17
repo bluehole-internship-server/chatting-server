@@ -5,8 +5,7 @@ LPFN_DISCONNECTEX core::Server::DisconnectEx = nullptr;
 LPFN_ACCEPTEX core::Server::AcceptEx = nullptr;
 LPFN_CONNECTEX core::Server::ConnectEx = nullptr;
 char core::Server::accept_buffer_[64] = { 0, };
-core::ThreadPool * core::Server::thread_pool_ = nullptr;
-core::ObjectPool<core::IoContext> * core::Server::io_context_pool_ = nullptr;
+core::ObjectPool<core::IoContext, 70> * core::Server::io_context_pool_ = nullptr;
 
 namespace core 
 {
@@ -68,14 +67,14 @@ VOID Server::Init()
 	 
 	// Create New Thread Pool
 	if (thread_pool_ == nullptr) {
-		thread_pool_ = new ThreadPool(WORKER_AMOUNT + 10);
-		for (int i = 0; i < WORKER_AMOUNT; ++i)
+		thread_pool_ = new ThreadPool(worker_amount_);
+		for (int i = 0; i < iocp_worker_amount_; ++i)
 			thread_pool_->Enqueue(IocpWork, *this);
 	}
 	
 	// Create New IoContext Pool
 	if(io_context_pool_ == nullptr){
-		io_context_pool_ = new core::ObjectPool<core::IoContext>;
+		io_context_pool_ = new core::ObjectPool<core::IoContext, 70>;
 	}
 }
 VOID Server::SetListenPort(USHORT port)
@@ -98,7 +97,20 @@ VOID Server::IocpWork(Server &server)
 		IoContext * io_context = nullptr;
 		ULONG_PTR key = 0;
 		BOOL io_result = false;
-		GetQueuedCompletionStatus(server.completion_port_, &received_bytes, (PULONG_PTR)&key, (LPOVERLAPPED *)&io_context, INFINITE);
+		BOOL gqcs_result = GetQueuedCompletionStatus(server.completion_port_, &received_bytes, (PULONG_PTR)&key, (LPOVERLAPPED *)&io_context, 100);
+		
+		if (gqcs_result == 0 || received_bytes == 0) {
+            if (io_context == nullptr && GetLastError() == WAIT_TIMEOUT) {
+                server.TimeoutHandler(io_context);
+				continue;
+            }
+            else if (io_context->io_type_ == IO_RECV || io_context->io_type_ == IO_SEND) {
+                io_context->client_->Disconnect();
+				io_context_pool_->Destroy(io_context);
+				continue;
+            }
+        }
+
 		io_context->received_ = received_bytes;
 		auto client = io_context->client_;
 		switch (io_context->io_type_) {
@@ -166,6 +178,18 @@ VOID Server::SetPacketHeaderSize(USHORT size)
 {
 	packet_header_size_ = size;
 }
+VOID Server::SetWorkerAmount(USHORT amount)
+{
+	worker_amount_ = amount;
+}
+VOID Server::SetIocpWorkerAmount(USHORT amount)
+{
+	iocp_worker_amount_ = amount;
+}
+VOID Server::SetTimeoutHandler(std::function<void(IoContext*)> handler)
+{
+	timeout_handler_ = std::move(handler);
+}
 VOID Server::SetPreAcceptHandler(std::function<void(IoContext *)> handler)
 {
 	pre_accept_handler_ = std::move(handler);
@@ -197,6 +221,11 @@ VOID Server::SetPostSendHandler(std::function<void(IoContext *)> handler)
 VOID Server::SetPostDisconnectHandler(std::function<void(IoContext *)> handler)
 {
 	post_disconnect_handler_ = std::move(handler);
+}
+VOID Server::TimeoutHandler(IoContext * io_context)
+{
+	if (timeout_handler_ != nullptr)
+		timeout_handler_(io_context);
 }
 VOID Server::PreAcceptHandler(IoContext * io_context)
 {
